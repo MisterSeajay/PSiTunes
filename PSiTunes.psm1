@@ -2,6 +2,8 @@
 # Load external functions
 ###################################################################################################
 
+Set-StrictMode -Version 2
+
 $FunctionsRoot = Join-Path $PSScriptRoot "Functions"
 
 $Functions = Get-ChildItem -Path $FunctionsRoot *.ps1
@@ -57,11 +59,21 @@ function formatiTunesTrackInfo {
 }
 
 function startiTunesApplication {
-  if(-not $iTunesApplication){
-    $GLOBAL:iTunesApplication = New-Object -ComObject iTunes.Application
-  }
+  [CmdletBinding(SupportsShouldProcess)]
+  param()
   
-  return $iTunesApplication
+  if($PSCmdlet.ShouldProcess("iTunes.Application","New-Object")){
+    try {
+      $GLOBAL:iTunesApplication = New-Object -ComObject iTunes.Application
+    }
+    catch {
+      if(Get-Process | ?{$_.Name -eq "iTunes"}) {
+        Write-Warning "Unable to connect to running iTunes application"
+      }
+
+      $GLOBAL:iTunesApplication = $null
+    }
+  }
 }
 
 ###################################################################################################
@@ -69,8 +81,8 @@ function startiTunesApplication {
 ###################################################################################################
 
 function Get-iTunesLibrary {
-  if(-not $iTunesApplication){
-    $iTunesApplication = startiTunesApplication
+  if(-not (Get-Variable | ?{$_.Name -eq "iTunesApplication"})){
+    startiTunesApplication
   }
   
   return $iTunesApplication.LibraryPlaylist
@@ -104,10 +116,6 @@ function Get-iTunesPlaylist {
       [System.String]$Name = ".",
     [System.Management.Automation.SwitchParameter]$ExactMatch = $false
   )
-  
-  if(-not $iTunesApplication){
-    $iTunesApplication = startiTunesApplication
-  }
   
   if($ExactMatch){
     $iTunesPlaylist = $iTunesApplication.Sources.Item(1).Playlists | ?{$_.Name -eq $Name}
@@ -235,8 +243,7 @@ function Set-iTunesTrackData {
   [CmdletBinding(SupportsShouldProcess)]
   param(
     [Parameter(
-      ValueFromPipeline=$true,
-      ValueFromPipelinebyPropertyName=$true)]
+      ValueFromPipeline=$true)]
     [System.Object[]]
     $Tracks,
     
@@ -245,7 +252,7 @@ function Set-iTunesTrackData {
     $Attribute,
 
     [Parameter()]
-    [ValidateScript({$_.GetType() -in [System.Int32],[System.String]})]
+    [ValidateScript({$_.GetType() -in ([Int],[String],[DateTime])})]
     $Value
   )
 
@@ -257,6 +264,7 @@ function Set-iTunesTrackData {
 
     foreach($Track in $Tracks){
       if($PSCmdlet.ShouldProcess($Attribute,"Set attribute")){
+        Write-Debug "Set $Attribute to $Value [$($Value.GetType().FullName)]"
         $Track.$Attribute = $Value
       }
     }
@@ -296,8 +304,7 @@ function Set-iTunesTrackGrouping {
   [CmdletBinding(SupportsShouldProcess)]
   param(
     [Parameter(
-      ValueFromPipeline=$true,
-      ValueFromPipelinebyPropertyName=$true)]
+      ValueFromPipeline=$true)]
     [System.Object]
     $Track = (Get-iTunesSelectedTracks),
 
@@ -481,131 +488,49 @@ function Sync-iTunesPlaylistTracks {
       ValueFromPipeline=$true,
       ValueFromPipelinebyPropertyName=$true)]
     [ValidateNotNullOrEmpty()]
-    [Alias("SyncPlaylist")]
+    [Alias("SyncPlaylist","Name")]
     [System.String]
-    $Name = "Sync (All)",
-
-    [Parameter()]
-    [ValidateNotNullOrEmpty()]
-    [System.Object[]]
-    $SyncTracks = (Get-iTunesPlaylist -Name $Name -ExactMatch).Tracks
+    $Playlist = "Sync (All)"
   )
   
+  $SyncTracks = (Get-iTunesPlaylist -Name $Playlist -ExactMatch).Tracks
+
+  Write-Debug "$($SyncTracks.Count) track to synchronize from $Playlist"
+
   # Make a summary list of each distinct Artist and Track Name combination
-  $SyncSummary = $SyncTracks | Select-Object Name,Artist -Unique
+  $SyncSummary = $SyncTracks | Select-Object Artist,Name | Sort-Object Artist,Name | Get-Unique -AsString
   
-  foreach($Item in $SyncSummary){
+  Write-Debug "$($SyncSummary.Count) distinct Artist-Song combinations"
+
+  foreach($Track in $SyncSummary){
     # Get the tracks matching this "item" in the SyncSummary (Artist and Track Name combination)
-    $Tracks = $SyncTracks | ?{($_.Name -eq $Item.Name) -and ($_.Artist -eq $Item.Artist)}
+    $Tracks = $SyncTracks | ?{($_.Name -eq $Track.Name) -and ($_.Artist -eq $Track.Artist)}
     
+    # Check whether we need to synchronize this Artist-Song combination
+    $PlayedCount = $Tracks.PlayedCount | Measure-Object -Maximum -Minimum
+
+    if($PlayedCount.Maximum -eq $PlayedCount.Minimum){
+      Write-Verbose "$($Track.Artist) - $($Track.Name) is already in-sync; skipping"
+      continue
+    }
+
     # Only attempt to update entries in the SynchronizationList where there are more than one
     # tracks with the same Name and Artist.
     if($Tracks.Count -gt 1){
-      Write-Verbose "Synchronizing $($Item.Artist) - $($Item.Name)"
-      
-      $UpdatedTracks = Set-iTunesTrackPlayedData -Tracks $Tracks -SyncPlayedData
-    }
-  }
-}
+      if($PSCmdlet.ShouldProcess("$($Track.Artist) - $($Track.Name)","Set-iTunesTrackPlayedData")){
+        Write-Verbose "Synchronizing $($Track.Artist) - $($Track.Name)"
 
-function Sync-iTunesTrackData {
-  [CmdletBinding(SupportsShouldProcess)]
-  param(
-    [Parameter(
-      ValueFromPipeline=$true,
-      ValueFromPipelinebyPropertyName=$true)]
-    [System.Object[]]
-    $Tracks = (Get-iTunesSelectedTracks),
-
-    [Parameter()]
-    [System.Management.Automation.SwitchParameter]
-    $SyncPlayedData,
-
-    [Parameter()]
-    [System.Management.Automation.SwitchParameter]
-    $FirstSync
-  )
-  
-  if((-not $Tracks) -or ($Tracks.Count -lt 2)){
-    Write-Warning "Minimum 2 tracks needed for sync"
-    return $null
-
-  } elseif(($Tracks | Select Name,Artist -Unique).Count -gt 1){
-    Write-Warning "Name and Artist does not match for all tracks"
-    Write-Debug ($Tracks | Select Name,Artist -Unique | Out-String)
-    return $null
-
-  } else {
-    Write-Verbose "$($PsCmdlet.ParameterSetName) data on $($Tracks.Count) tracks"
-  }
-  
-  $PlayedDate = ($Tracks | Measure-Object -Maximum -Property PlayedDate).Maximum
-      
-  $MaxRating = [Int32]($Tracks | Measure-Object -Maximum -Property Rating).Maximum
-      
-  # NB: Unless the FirstSync switch has been used, we make an assumption that the least-
-  # played track in the list is a low-water mark, i.e. it has not been played since the last
-  # sync, so we can use that mark when calculating how many times the other tracks have been
-  # played.
-      
-  if($FirstSync){
-    $MinPlayed = 0
-  } else {
-    $MinPlayed = ($Tracks | Measure-Object -Property PlayedCount -Minimum).Minimum
-  }
-        
-  # We work out how many times each track was played over this minimum count. We will also
-  # take the opportunity to add the "Sync" tag to the Grouping field so we can more-easily
-  # find tracks which have been synchronised in this way in the future and finally, we will
-  # add a "NoPlaylist" tag to remove duplicate tracks from smart playlists (for which we
-  # will make some effort to ensure the earliest version of the track is the "master").
-      
-  $PlayedCount = $MinPlayed
-  $AddNoPlaylist = 0
-      
-  foreach($Track in ($Tracks | Sort-Object Compilation,Year,Album)){
-
-    ###########################################################################################
-    # Work out total PlayedCount: Add the number of additional times this track has been played
-
-    if($Track.PlayedCount -gt $MinPlayed){
-        $PlayedCount+= ($Track.PlayedCount - $MinPlayed)
-    }
-        
-    ###########################################################################################
-    # Add "Sync" tag to the Grouping field to enable future re-syncs
-
-    Set-iTunesTrackGrouping -Track $Track -Add "Sync"
-        
-    ###########################################################################################
-    # Ensure that only one version of this song is added to smart playlists
-    # 
-    # If the AddNoPlaylist switch has been set (after the first run of this loop) we add
-    # that tag, else we ensure that the tag is removed in case it was set previously.
-        
-    if($AddNoPlaylist){
-        Set-iTunesTrackGrouping -Track $Track -Add "NoPlaylist"
+        try {
+          $UpdatedTracks = Sync-iTunesTrackData -Tracks $Tracks -SyncPlayedData
+        }
+        catch {
+          throw
+          break
+        }
+      }
     } else {
-        Set-iTunesTrackGrouping -Track $Track -Remove "NoPlaylist"
+      Write-Warning "Only 1 entry found for $($Track.Artist) - $($Track.Name)"
     }
-        
-    # After the first run through the list of tracks we set this flag to ensure the rest
-    # of the list get the "NoPlaylist" tag added in their grouping field.
-        
-    $AddNoPlaylist = 1
-  }
-      
-  if($PlayedCount -eq 0){
-    $PlayedDate = "1899-12-30"
-  }
-  
-  #################################################################################################
-  # Synchronize track data
-
-  foreach($Track in $Tracks){
-    $Track | Set-iTunesTrackData -Attribute PlayedCount -Value $PlayedCount
-    $Track | Set-iTunesTrackData -Attribute PlayedDate -Value $PlayedDate
-    $Track | Set-iTunesTrackData -Attribute Rating -Value $MaxRating
   }
 }
 
@@ -632,15 +557,8 @@ $SharedRoot = "S:\Music\"
 
 ###################################################################################################
 # Start iTunes Application
-if(-not (Get-Process | ?{$_.Name -eq "iTunes"})){
-  Write-Warning "Starting iTunes"
-  $GLOBAL:iTunesApplication = startiTunesApplication
-}
+startiTunesApplication
 
 ###################################################################################################
 # Load the iTunes Library object
 $GLOBAL:iTunesLibrary = Get-iTunesLibrary
-
-###################################################################################################
-# Analyze library
-# $GLOBAL:iTunesGenres = Get-iTunesGenres -iTunesLibrary $iTunesLibrary
