@@ -1,21 +1,5 @@
 Set-StrictMode -Version 2
 
-function getFolderMetadata {
-  param(
-    [Parameter(Mandatory=$True)]
-    [string]$Path,
-
-    [switch]
-    $Recurse = $false
-  )
-
-  getMetadata $Path
-
-  if($Recurse){
-    Get-ChildItem $Path -Directory | Foreach-Object {getFolderMetadata $_.FullName -Recurse}
-  }
-}
-
 function Get-FileMetadata {
   param(
     [Parameter(ValueFromPipeline=$True)]
@@ -38,7 +22,7 @@ function Get-FileMetadata {
   foreach ($Item in $Items) {
     
     if(Test-Path -PathType Container $Item.Path){
-      getMetaData -Path $Item.Path
+      Get-FileMetadata -Path $Item.Path
     } else {
         $Count=0
         $Object = New-Object PSObject
