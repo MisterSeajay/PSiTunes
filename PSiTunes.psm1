@@ -1,6 +1,11 @@
 Set-StrictMode -Version 2
 
 ###################################################################################################
+# Load libraries
+
+# [Reflection.Assembly]::LoadFrom( (Resolve-Path ".\lib\TagLibSharp.dll"))
+
+###################################################################################################
 # Dot-source functions
 
 $PrivateFunctions = Join-Path $PSScriptRoot "Private"
@@ -28,8 +33,8 @@ $SearchType.ITPlaylistSearchFieldSongNames = 5  # Search only the song name fiel
 
 ###################################################################################################
 # Set paths for iTunes music and the new "shared music" location
-$iTunesRoot = "S:\iTunes\iTunes Media\Music\"
-$SharedRoot = "S:\Music\"
+$GLOBAL:iTunesRoot = "D:\iTunes\iTunes Media\Music\"
+$GLOBAL:SharedRoot = "D:\iTunes\iTunes Media\Music\"
 
 ###################################################################################################
 # Start iTunes Application

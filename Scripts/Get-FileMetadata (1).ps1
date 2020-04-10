@@ -20,7 +20,6 @@ function Get-FileMetadata {
   $Items = $Folder.Items() | Where-Object {$_.Path -like $Include}
 
   foreach ($Item in $Items) {
-    
     if(Test-Path -PathType Container $Item.Path){
       Get-FileMetadata -Path $Item.Path
     } else {
@@ -38,7 +37,7 @@ function Get-FileMetadata {
   }
 }
 
-function ConvertTo-iTunesFieldNames {
+function Get-MusicTags {
   param(
     [Parameter(ValueFromPipeline)]
     $InputObject
@@ -50,39 +49,29 @@ function ConvertTo-iTunesFieldNames {
   PROCESS {
     $InputObject | Where-Object {$_.Kind -eq "Music"} |
       Foreach-Object {
-        if($_.Album -match "\\Various Artists\\"){
-          $Compilation = $true
-        } else {
-          $Compilation = $False
-        }
-
         if($_.Album -match "Disc\s*(\d+)"){
-          $DiscNumber = $Matches[1]
+          $Disc = $Matches[1]
         } else {
-          $DiscNumber = 1
+          $Disc = 1
         }
 
         [PSCustomObject]@{
-          Name = $_.Title
-          Album = $_.Album
-          Artist = $_."Contributing Artists"
-          BitRate = $_."Bit rate"
-          Comment = $_.Comments
-          Compilation = $Compilation
-          Composer = $_.Authors
-          #DiscCount =  
-          DiscNumber = $DiscNumber
-          Duration = ($_.Length -as [TimeSpan]).TotalSeconds
-          Genre = $_.Genre
-          # Rating = $_.Rating
-          Size = [int]($_.Size.Split(" ")[0]) * 1MB
-          Time = ($_.Length -as [TimeSpan])
-          #TrackCount = 
-          TrackNumber = $_."#"
+          "Album Artist" = $_.Authors
+          "Album Title" = $_.Album
+          "Track Title" = $_.Title
+          "Track Artist" = $_."Contributing Artists"
           Year = $_.Year
-          Location = $_.Fullname
-          AlbumArtist = if($Compilation){"Various Artists"} else {$_."Contributing Artists"}
-          # Conductor = $_.Conductors
+          Genre = $_.Genre
+          Conductor = $_.Conductors
+          Rating = $_.Rating
+          Comments = $_.Comments
+          Track = $_."#"
+          Disc = $Disc
+          Length = $_.Length
+          Bitrate = $_."Bit rate"
+          FileName = $_.Name
+          FilePath = $_.Fullname
+          FileSize = $_.Size
         }
       }
   }

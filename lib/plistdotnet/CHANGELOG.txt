@@ -1,0 +1,49 @@
+Version History
+===============
+
+v0.4
+====
+
+New Features
+------------
+
+- 100% Mono.net Compatibility.
+- Custom collections and dictionaries classes which inherited from List<T> or
+  Dictionary<Tkey, Tvalue> are detected as generic types and handled
+  appropriately.
+  
+- NUnit Test Project added to Solution that only tests public methods.
+- Two new debug configurations, one that only builds the MS/Visual Studio test
+  project, the other builds the Mono NUnit test project.
+
+Updates
+-------
+
+- Date Format amended to the ISO 8601 combined date and time in 
+  UTC (YYYY-MM-DDTHH:mm:ssZ).
+- Visual Studio Unit Test Project amended so that private methods are
+  NOT Unit Tested.
+
+Bug Fixes
+---------
+
+- System.Collections.Generic.List<T> objects were causing exceptions
+  (resulting in an empty plist).
+- System.Collections.Generic.Dictionary<Tkey, Tvalue> objects were causing
+  exceptions (resulting in an empty plist).
+
+
+v0.3
+====
+
+New Features
+------------
+
+- Unit Test Project added to Solution
+
+Bug Fixes
+---------
+
+- DataObject Parser Unclosed 'dict' tag.
+- DataObject Parser now handles 'real' values.
+- DataSet Parse Stack Overflow.
