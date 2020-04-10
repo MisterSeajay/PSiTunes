@@ -1,6 +1,7 @@
 <#
 EXAMPLE USE OF TAGLIB
 =====================
+https://www.toddklindt.com/blog/Lists/Posts/Post.aspx?ID=468
 
 Load up the MP3 file. Again, I used a relative path, but an absolute path works too
 $media = [TagLib.File]::Create((resolve-path ".\Netcast 185 - Growing Old with Todd.mp3"))
