@@ -6,7 +6,7 @@ function Sync-iTunesPlaylistTracks {
       ValueFromPipelinebyPropertyName=$true)]
     [ValidateNotNullOrEmpty()]
     [Alias("SyncPlaylist","Name")]
-    [System.String]
+    [string]
     $Playlist = "Sync (All)"
   )
   

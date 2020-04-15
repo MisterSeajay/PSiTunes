@@ -7,7 +7,7 @@ function Set-iTunesTrackData {
     $Tracks,
     
     [Parameter()]
-    [System.String]
+    [string]
     $Attribute,
 
     [Parameter()]

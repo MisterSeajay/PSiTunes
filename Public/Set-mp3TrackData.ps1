@@ -31,7 +31,7 @@ function Set-mp3TrackData {
         $Path,
         
         [Parameter()]
-        [System.String]
+        [string]
         $Attribute,
 
         [Parameter()]

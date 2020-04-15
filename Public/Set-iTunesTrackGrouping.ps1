@@ -10,14 +10,14 @@ function Set-iTunesTrackGrouping {
       Mandatory=$true,
       ParameterSetName="Add")]
     [ValidateNotNullOrEmpty()]
-    [System.String]
+    [string]
     $Add,
 
     [Parameter(
       Mandatory=$true,
       ParameterSetName="Remove")]
     [ValidateNotNullOrEmpty()]
-    [System.String]
+    [string]
     $Remove
   )
 

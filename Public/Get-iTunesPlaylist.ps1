@@ -2,7 +2,7 @@ function Get-iTunesPlaylist {
   [CmdletBinding(SupportsShouldProcess)]
   param(
     [Parameter(Mandatory=$true)]
-      [System.String]$Name = ".",
+      [string]$Name = ".",
     [System.Management.Automation.SwitchParameter]$ExactMatch = $false
   )
   

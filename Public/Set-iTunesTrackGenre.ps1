@@ -11,7 +11,7 @@ function Set-iTunesTrackGenre {
     [Parameter(
       Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    [System.String]
+    [string]
     $Genre
   )
   

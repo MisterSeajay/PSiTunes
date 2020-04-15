@@ -10,11 +10,11 @@ function Set-iTunesTrackName {
     $Normalize,
 
     [Parameter(ParameterSetName="Set")]
-    [System.Int32]
+    [int]
     $TrackIndex,
 
     [Parameter(ParameterSetName="Set")]
-    [System.String]
+    [string]
     $Name,
 
     [Parameter(ParameterSetName="Set")]
@@ -61,7 +61,7 @@ function Set-iTunesTrackName {
         $NewNames."$($Track.Index)" = $NewNames."$($Track.Index)" -replace "''",'"'
       
         # Update entry, capitalizing the first letter of each word
-        $NewNames."$($Track.Index)" = ConvertTo-CapitalizedWords $NewNames."$($Track.Index)"
+        $NewNames."$($Track.Index)" = convertToCapitalizedWords $NewNames."$($Track.Index)"
       }
     }
     

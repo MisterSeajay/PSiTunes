@@ -4,40 +4,39 @@ function Search-iTunesLibrary {
     [Parameter(
       ParameterSetName="Library",
       Mandatory=$true)]
-    [System.String]
+    [ValidateNotNullOrEmpty()]
+    [string]
     $Search,
     
     [Parameter( 
-      ParameterSetName="Track")]
-    [System.String]
-    $AlbumName = "",
+      ParameterSetName="Track",
+      ValueFromPipelineByPropertyName)]
+    [string]
+    $Album = "",
     
     [Parameter(
-      ParameterSetName="Track")]
-    [System.String]
-    $ArtistName = "",
+      ParameterSetName="Track",
+      ValueFromPipelineByPropertyName)]
+    [string]
+    $Artist = "",
     
     [Parameter(
-      ParameterSetName="Track")]
-    [System.String]
-    $TrackName = "",
+      ParameterSetName="Track",
+      ValueFromPipelineByPropertyName)]
+    [string]
+    $Name = "",
     
     [Parameter()]
-    [System.Int32]
-    $SearchType = 0,
+    [SearchTypes]
+    $SearchType = [SearchTypes]::ITPlaylistSearchFieldAll,
     
     [Parameter()]
     [System.Object]
     $iTunesLibrary = $(Get-iTunesLibrary)
   )
   
-  if(($SearchType -lt 0) -or ($SearchType -gt 5)){
-    Write-Error "Invalid search type: $SearchType"
-    return $null
-  }
-  
   if($PsCmdlet.ParameterSetName -eq "Track"){
-    $Search = "$ArtistName $AlbumName $TrackName"
+    $Search = "$Artist $Album $Name"
   }
    
   # Run search
@@ -61,9 +60,9 @@ function Search-iTunesLibrary {
   
   # Filter results if a "track" search was used
   $Tracks = $Tracks | Where-Object {`
-    ($_.Artist -match $ArtistName) -and `
-    ($_.Album -match $AlbumName) -and `
-    ($_.Name -match $TrackName)}
+    ($_.Artist -match $Artist) -and `
+    ($_.Album -match $Album) -and `
+    ($_.Name -match $Name)}
     
   # Return the list of tracks as an array
   return $Tracks

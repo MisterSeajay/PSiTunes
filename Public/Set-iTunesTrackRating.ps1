@@ -11,7 +11,7 @@ function Set-iTunesTrackRating {
     [Parameter(
       Mandatory=$true)]
     [ValidateSet(0,1,2,3,4,5,20,40,60,80,100)]
-    [System.Int32]
+    [int]
     $Rating
   )
   
