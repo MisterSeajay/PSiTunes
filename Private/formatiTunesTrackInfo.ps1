@@ -8,11 +8,11 @@ function formatiTunesTrackInfo {
     $Tracks = (Get-iTunesSelectedTracks),
 
     [Parameter()]
-    [System.Management.Automation.SwitchParameter]
+    [switch]
     $ShowAlbum = $true,
 
     [Parameter()]
-    [System.Management.Automation.SwitchParameter]
+    [switch]
     $ShowTrackDatabaseId
   )
 

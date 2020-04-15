@@ -3,7 +3,7 @@ function Get-iTunesLibraryXml {
     [OutputType([xml])]
     param(
         [Parameter()]
-        $Path = "$env:USERPROFILE\Music\iTunes\iTunes Library.xml"
+        $Path = $iTunesApplication.LibraryXMLPath
     )
 
     if($PSCmdlet.ShouldProcess($Path,"Get-Content")){
