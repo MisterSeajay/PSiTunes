@@ -43,7 +43,6 @@ function Search-iTunesLibrary {
     $SearchString = $Search.Trim() -replace '  ',' '
     
     if($SearchString){
-        Write-Debug $SearchString
         $SearchResults = $iTunesLibrary.Search($SearchString, $SearchType)
     } else {
         Write-Error "Search string is empty"
@@ -51,12 +50,13 @@ function Search-iTunesLibrary {
     }
     
     if(-not $SearchResults){
-        Write-Warning "Search returned no results"
+        Write-Warning "Search returned no results for $SearchString"
         return $null
     }
+
     # Create a list of tracks from the search results
     $Tracks = @()
-    $SearchResults | %{$Tracks += $_}
+    $SearchResults | Foreach-Object {$Tracks += $_}
     
     # Filter results if a "track" search was used
     $Tracks = $Tracks | Where-Object {`

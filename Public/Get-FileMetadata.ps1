@@ -1,13 +1,18 @@
 function Get-FileMetadata {
     param(
-        [Parameter(ValueFromPipeline=$True)]
+        [Parameter(Position=0, ValueFromPipeline=$True)]
         [ValidateNotNullOrEmpty()]
-        [string]$Path = (Get-Location),
+        [string]
+        $Path = (Get-Location),
 
         [Parameter()]
-        [ValidateSet("Explorer", "TagLib")]
         [string]
-        $Method = "TagLib",
+        $RootPath,
+
+        [Parameter()]
+        [ValidateSet("FilePath", "FileAttributes", "TagLib")]
+        [string]
+        $Method = "FileAttributes",
 
         [switch]
         $Raw,
@@ -20,49 +25,57 @@ function Get-FileMetadata {
     }
 
     PROCESS {
-        $Fullname = (Resolve-Path -LiteralPath $Path).ToString()
+        # Write-Debug $Path
+
+        $FullName = (Resolve-Path -LiteralPath $Path).ToString()
 
         switch($Method){
-            "TagLib" {
-                $FileMetaData = if(Test-Path -LiteralPath $Fullname -PathType Container){
-                    Get-ChildItem $Fullname | Foreach-Object {
-                        if(Test-Path -LiteralPath $_.Fullname -PathType Container){
-                            Get-FileMetaData $_.Fullname
-                        } else {
-                            getTagLibData -Path $_.Fullname
-                        }
-                    }
-                } else {
-                    getTagLibData -Path $Fullname
-                }
-
-                if($Raw){
-                    Write-Output $FileMetaData
-                } else {
-                    Write-Output ($FileMetaData | convertFromTagLibProperties)
-                }
-            }
-
-            default {
-                if(Test-Path -LiteralPath $Fullname -PathType Leaf) {
-                    $Filename = Split-Path $Fullname -Leaf
-                    $Fullname = Split-Path $Fullname -Parent
+            "FileAttributes" {
+                if(Test-Path -LiteralPath $FullName -PathType Leaf) {
+                    $Filename = Split-Path $FullName -Leaf
+                    $FullName = Split-Path $FullName -Parent
                 } elseif($Recurse) {
                     $Filename = "*"
                 } else {
                     $Filename = "*.mp3"
                 }
         
-                $FileMetaData = (getExplorerData -Path $Fullname -Filename $Filename)                      
+                $FileMetadata = getDataFromFileAttributes -Path $FullName -Name $Filename
 
-                if($Raw){
-                    Write-Output $FileMetaData
-                } else {
-                    Write-Output ($FileMetaData | convertFromExplorerProperties)
+                if($FileMetadata -and -not $Raw){
+                    $FileMetadata = ($FileMetadata | convertFromFileAttributes)
                 }
+            }
+            
+            "FilePath" {
+                $FileMetadata = getDataFromFilePath -FullName $Path -RootPath $RootPath
+                if($FileMetadata -and -not $Raw){
+                    $FileMetadata = ($FileMetadata | convertFromFileAttributes)
+                }
+            }
+
+            "TagLib" {
+                $FileMetadata = if(Test-Path -LiteralPath $FullName -PathType Container){
+                        Get-ChildItem $FullName | Foreach-Object {
+                            if(Test-Path -LiteralPath $_.FullName -PathType Container){
+                                Get-FileMetadata $_.FullName
+                            } else {
+                                getDataFromTagLib -Path $_.FullName
+                            }
+                        }
+                    } else {
+                        getDataFromTagLib -Path $FullName
+                    }
+
+                if($FileMetadata -and -not $Raw){
+                    $FileMetadata = ($FileMetadata | convertFromTagLibProperties)
+                }
+
+                break
             }
         }
         
+        Write-Output $FileMetadata
     }
 
     END {

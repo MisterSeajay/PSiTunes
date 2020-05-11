@@ -6,14 +6,14 @@ param(
 
     [Parameter()]
     [string]
-    $WindowsMediaPath = "S:\Music\Ripped",
+    $SourcePath = (Get-Location),
 
     [Parameter()]
     [switch]
-    $UseLocalMedia
+    $UseiTunesMedia
 )
 
-Import-Module C:\Scripts\PowerShell\psiTunes
+Import-Module S:\PowerShell\psiTunes -Force
 
 function getFilesWithHyphens {
     [CmdletBinding()]
@@ -25,7 +25,7 @@ function getFilesWithHyphens {
 
     Get-ChildItem -Path $Path *.mp3 -Recurse |
         Where-Object {$_.Name -match "^\d+-\D"} |
-        Select-Object -ExpandProperty Fullname
+        Select-Object -ExpandProperty FullName
 }
 
 function getWindowsMediaFiles {
@@ -37,49 +37,149 @@ function getWindowsMediaFiles {
 
     $IgnoredFolders = @(
         "Amazon Music"
+        "Audible"
         "iTunes"
         "Playlists"
-        "Various Artists"
     ) -join ("|")
 
-    $Folders = Get-ChildItem -Path $Path -Directory |
+    $Folders = @(Get-ChildItem -LiteralPath $Path -Directory |
         Where-Object {$_.Name -notmatch $IgnoredFolders} |
-        Select-Object -ExpandProperty Fullname -First $LimitArtists
+        Select-Object -ExpandProperty FullName -First $LimitArtists
+    )
+
+    $Folders += $Path
 
     foreach($Folder in $Folders){
-        Get-ChildItem -Path $Folder *.mp3 -Recurse |
-            Select-Object -ExpandProperty Fullname
+        Get-ChildItem -LiteralPath $Folder *.mp3 -File -Recurse |
+            Select-Object -ExpandProperty FullName
     }
 }
 
-function getDataFromFile {
+function generateSearchString {
+    [CmdletBinding()]
+    Param(
+        [Parameter(ValueFromPipeline)]
+        $MetaData
+    )
+
+    ("{0} {1}" -f $MetaData.Album, $MetaData.Name) -replace "[(\[][^)\]]+[)\]]",""
+}
+
+function getTargetPath {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(ValueFromPipeline)]
+        [Alias("FileData")]
+        $MetaData,
+
+        [Parameter()]
+        [string]
+        $iTunesMediaPath = "D:\iTunes\iTunes Media",
+
+        [Parameter()]
+        [string]
+        $MediaType = "Music"
+    )
+
+    $RootPath = Join-Path $iTunesMediaPath $MediaType
+
+    if($MetaData.Compilation){
+        $ArtistFolder = Join-Path $RootPath "Compilations"
+        $Filename = "{0}-{1:d2} - {2} - {3}" -f $MetaData.DiscNumber, $MetaData.TrackNumber, $MetaData.Artist, $MetaData.Name
+    } else {
+        $ArtistFolder = Join-Path $RootPath $MetaData.AlbumArtist -replace "\[[^\]]+\]",""
+        $Filename = "{0}-{1:d2} - {2}" -f $MetaData.DiscNumber, $MetaData.TrackNumber, $MetaData.Artist, $MetaData.Name
+    }
+
+    $AlbumFolder = Join-Path $ArtistFolder.trim() $MetaData.Album
+
+    if(-not (Test-Path -LiteralPath $AlbumFolder)){
+        New-Item -Path $AlbumFolder -ItemType Directory -ErrorAction Stop  | Out-Null
+    }
+
+    $TargetPath = Join-Path $AlbumFolder $Filename.Trim(" -")
+
+    $TargetPath+=($MetaData.Location -as [System.IO.FileInfo]).Extension
+
+    return $TargetPath
+}
+
+function refineSearchResults {
     [CmdletBinding()]
     param(
-        [Parameter(Position=0, ValueFromPipeline=$true)]
-        [string]
-        $Fullname,
+        [Parameter(Position=0, Mandatory)]
+        $MetaData,
 
-        [Parameter(Position=1)]
-        [string]
-        $Path = (Get-Location)
+        [Parameter(ValueFromPipeline)]
+        $Results
     )
-    
+
     BEGIN {}
 
     PROCESS {
-        $Data = ($Fullname -replace "$([Regex]::Escape($Path))\\","") -split('\\')
-        [PSCustomObject]@{
-            File = $Fullname
-            Artist = $Data[0]
-            Album = $Data[1]
-            TrackNumber = $Data[2] -replace '^(\d+).*','$1'
-            Name = $Data[2] -replace '^\d+-(.+)','$1'
-        }
-    }
+        $Album = $MetaData.Album -replace "[(\[][^)\]]+[)\]]",""
+        $Name = $MetaData.Name -replace "[(\[][^)\]]+[)\]]",""
 
+        $Results | Where-Object {$_.Album -match $Album.trim() `
+            -and $_.Name -match $Name.trim() `
+            -and $_.TrackNumber -eq $MetaData.TrackNumber}
+    }
+    
     END {}
 }
 
+###############################################################################
+# Initialize variables
+
+$iTunesMusicPath = Join-Path $iTunesMediaPath "Music"
+
+###############################################################################
+# Extract metadata from files to merge into iTunes
+
+if($UseiTunesMedia){
+    $Files = getFilesWithHyphens $iTunesMusicPath
+    $FileData = $Files | Get-FileMetadata -RootPath $iTunesMusicPath
+} else {
+    $Files = getWindowsMediaFiles -Path $SourcePath
+    $FileData = $Files | Get-FileMetadata -RootPath $SourcePath
+}
+
+Write-Debug "Processing $($FileData.Count) files"
+
+###############################################################################
+# Find matching track in iTunes, move the source file and update the file location
+
+$UniqueCheck = ($FileData | Group-Object Album,Name | Measure-Object -Property Count -Maximum).Maximum
+
+if($UniqueCheck -gt 1){
+    Write-Warning "Some combinations of Album & Track name are not unique:"
+    Write-Warning ($FileData | Group-Object Album,Name | Where-Object{$_.Count -gt 1} | Format-Table Album,Name | Out-String)
+    exit 1
+}
+
+foreach($File in $FileData){
+    $Search = generateSearchString -MetaData $File    
+    $Results = Search-iTunesLibrary -Search $Search | Where-Object {[string]::IsNullOrEmpty($_.Location)}
+    $Results = refineSearchResults -MetaData $File -Results $Results
+
+    if(-not $Results){
+        Write-Warning "No results (without location) returned for: $Search"
+        continue
+    }
+
+    $TargetPath = getTargetPath -MetaData $File -iTunesMediaPath $iTunesMediaPath
+
+    if($PSCmdlet.ShouldProcess($File.Location,"Move-Item")){
+        Move-Item -LiteralPath $File.Location -Destination $TargetPath -Force -ErrorAction Stop
+    }
+
+    if($PSCmdlet.ShouldProcess($TargetPath,"Update iTunes Location")){
+        $Results.Location = $TargetPath
+    }
+}
+
+<#
 function findFileDataMatchingTrack {
     param(
         $FileData,
@@ -89,7 +189,7 @@ function findFileDataMatchingTrack {
     $TrimmedAlbum = ($iTunesTrack.Album -replace '(^the|the$)',"").Trim(" ,")
     $TrimmedArtist = ($iTunesTrack.Artist -replace '(^the|the$)',"").Trim(" ,")
 
-    $MatchingFile = $FileData | Where-Object{`
+    $MatchingFile = $FileData | Where-Object {`
         ($_.Album -match $TrimmedAlbum) -and `
         ($_.Artist -match $TrimmedArtist) -and `
         ([int]$_.TrackNumber -eq [int]$iTunesTrack.TrackNumber)}
@@ -163,35 +263,29 @@ function updateMediaLocation {
     }
 }
 
-###############################################################################
-# Initialize variables
+function filterAlbums {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline)]
+        $FileData,
 
-$iTunesMusicPath = Join-Path $iTunesMediaPath "Music"
+        [Parameter(Mandatory)]
+        [string]
+        $ByArtist
+    )
 
-Set-Location $iTunesMusicPath
+    BEGIN {}
 
-###############################################################################
-# Find files to merge into iTunes
+    PROCESS {
+        Write-Output ($FileData | Where-Object {$_.AlbumArtist -eq $ByArtist}).Album | Select-Object -Unique
+    }
 
-if($UseLocalMedia){
-    $Files = getFilesWithHyphens $iTunesMusicPath
-    $FileData = $Files | getDataFromFile -Path $iTunesMusicPath
-    Write-Verbose "Processing $($FileData.Count) files"
-
-} else {
-    $Files = getWindowsMediaFiles -Path $WindowsMediaPath
-    $FileData = $Files | getDataFromFile -Path $WindowsMediaPath
-    Write-Verbose "Processing $($FileData.Count) files"
-
-    $FileData = $FileData | updateMediaLocation -Source $WindowsMediaPath -Destination $iTunesMusicPath
+    END {}
 }
 
-###############################################################################
-# Find matching track in iTunes and update the file location
+foreach($AlbumArtist in ($FileData.AlbumArtist | Select-Object -Unique)){
 
-foreach($Artist in ($FileData.Artist | Select-Object -Unique)){
-
-    foreach($Album in (($FileData | ?{$_.Artist -eq $Artist}).Album | Select-Object -Unique)){
+    foreach($Album in ($FileData | filterAlbums -ByArtist $AlbumArtist)){
         
         Write-Verbose "Finding matching items in iTunes library"
         $TrimmedArtist = ($Artist -replace "the","").Trim(" ,.")
@@ -213,3 +307,4 @@ foreach($Artist in ($FileData.Artist | Select-Object -Unique)){
         }
     }
 }
+#>

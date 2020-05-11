@@ -1,11 +1,12 @@
-function getExplorerData {
+function getDataFromFileAttributes {
     param(
-      [Parameter(ValueFromPipeline=$True)]
-      [ValidateScript({Test-Path -LiteralPath $_})]
-      [string]$Path = (Get-Location),
+        [Parameter(ValueFromPipeline=$True)]
+        [ValidateScript({Test-Path -LiteralPath $_})]
+        [string]$Path = (Get-Location),
 
-      [Parameter()]
-      [string]$Filename = '*'
+        [Parameter()]
+        [Alias("Filename")]
+        [string]$Name = '.*'
     )
 
     BEGIN {
@@ -15,19 +16,22 @@ function getExplorerData {
     PROCESS {
         $Path = (Resolve-Path -LiteralPath $Path).ToString()
 
-        if(-not (Test-Path $Path -PathType Container)){
-            $Filename = Split-Path $Path -Leaf
+        if(-not (Test-Path -LiteralPath $Path -PathType Container)){
+            $Name = Split-Path $Path -Leaf
             $Path = Split-Path $Path -Parent
         }
+
+        Write-Debug "getDataFromFileAttributes: Path = $Path"
+        Write-Debug "getDataFromFileAttributes: Name = $Name"
         
         $Folder = $Shell.Namespace($Path)
       
-        $Items = $Folder.Items() | Where-Object {(Split-Path $_.Path -Leaf) -like $Filename}
+        $Items = $Folder.Items() | Where-Object {(Split-Path $_.Path -Leaf) -match [Regex]::Escape($Name)}
 
         foreach ($Item in $Items) {
           
             if(Test-Path -LiteralPath $Item.Path -PathType Container){
-                Get-FileMetadata -Path $Item.Path
+                getDataFromFileAttributes -Path $Item.Path
             } else {
                 $Count=0
                 $Object = New-Object PSObject
@@ -41,8 +45,8 @@ function getExplorerData {
                 Write-Output $Object
             }
         }
-      }
+    }
 
-      END {
-      }
+    END {
+    }
 }

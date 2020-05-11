@@ -1,4 +1,4 @@
-function getTagLibData {
+function getDataFromTagLib {
     [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeline)]
@@ -8,6 +8,5 @@ function getTagLibData {
 
     $TagLibFile = [TagLib.File]::Create((Resolve-Path -LiteralPath $Path))
     Write-Output $TagLibFile.Tag
-    # $TagLibFile.Close()
 }
     
