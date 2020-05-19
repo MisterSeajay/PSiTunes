@@ -1,6 +1,6 @@
 function Get-FileMetadata {
     param(
-        [Parameter(Position=0, ValueFromPipeline=$True)]
+        [Parameter(Position=0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
         [string]
         $Path = (Get-Location),

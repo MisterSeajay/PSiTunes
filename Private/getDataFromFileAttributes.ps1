@@ -5,8 +5,14 @@ function getDataFromFileAttributes {
         [string]$Path = (Get-Location),
 
         [Parameter()]
-        [Alias("Filename")]
-        [string]$Name = '.*'
+        [Alias("Filename","Name")]
+        [string]$Glob = '*.mp3',
+
+        [Parameter()]
+        [switch]$Recurse,
+
+        [Parameter()]
+        [int]$Depth = 1
     )
 
     BEGIN {
@@ -17,22 +23,26 @@ function getDataFromFileAttributes {
         $Path = (Resolve-Path -LiteralPath $Path).ToString()
 
         if(-not (Test-Path -LiteralPath $Path -PathType Container)){
-            $Name = Split-Path $Path -Leaf
+            $Glob = Split-Path $Path -Leaf
             $Path = Split-Path $Path -Parent
         }
 
-        Write-Debug "getDataFromFileAttributes: Path = $Path"
-        Write-Debug "getDataFromFileAttributes: Name = $Name"
+        # Write-Debug "getDataFromFileAttributes: `$Path = ""$Path"""
+        # Write-Debug "getDataFromFileAttributes: `$Glob = ""$Glob"""
         
         $Folder = $Shell.Namespace($Path)
       
-        $Items = $Folder.Items() | Where-Object {(Split-Path $_.Path -Leaf) -match [Regex]::Escape($Name)}
+        $Items = $Folder.Items()
+        $ItemTotal = $Folder.Items().Count
+        $ItemCount = 0
 
         foreach ($Item in $Items) {
-          
-            if(Test-Path -LiteralPath $Item.Path -PathType Container){
-                getDataFromFileAttributes -Path $Item.Path
-            } else {
+            $ItemCount++
+            Write-Progress -Id $Depth -ParentId ($Depth - 1) -Activity "getDataFromFileAttributes" `
+                -CurrentOperation $Item.Name -PercentComplete ([math]::Floor(100 * ($ItemCount/$ItemTotal))) 
+
+            if($Item.Name -like $Glob -and -not $Item.IsFolder){
+                # Write-Debug "getDataFromFileAttributes: Reading $($Item.Name)"
                 $Count=0
                 $Object = New-Object PSObject
                 $Object | Add-Member NoteProperty FullName $Item.Path
@@ -43,8 +53,12 @@ function getDataFromFileAttributes {
                 }
 
                 Write-Output $Object
+            } elseif($Recurse -and $Item.IsFolder) {
+                getDataFromFileAttributes -Path $Item.Path -Recurse -Depth ($Depth + 1)
             }
         }
+
+        Write-Progress -Id $Depth -Activity "getDataFromFileAttributes" -Completed
     }
 
     END {
