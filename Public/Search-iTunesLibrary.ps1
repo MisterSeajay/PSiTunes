@@ -50,7 +50,7 @@ function Search-iTunesLibrary {
     }
     
     if(-not $SearchResults){
-        Write-Warning "Search returned no results for $SearchString"
+        Write-Debug "Search returned no results for $SearchString"
         return $null
     }
 
