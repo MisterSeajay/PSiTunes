@@ -10,18 +10,20 @@ param(
 
     [Parameter()]
     [switch]
+    $AddMissing,
+
+    [Parameter()]
+    [switch]
+    $Force,
+
+    [Parameter()]
+    [switch]
     $UseiTunesMedia,
 
     [Parameter()]
     [int]
-    $FolderLimit = 2
+    $FolderLimit = 1
 )
-
-trap {
-    Write-Debug $_.Exception
-    throw
-    exit 1
-}
 
 Import-Module S:\PowerShell\psiTunes -Force -Verbose:$false
 
@@ -60,11 +62,17 @@ function getWindowsMediaFolders {
     }
     
     PROCESS {
-        Write-Output $Path
-
-        Get-ChildItem -LiteralPath $Path.ToString() -Directory -Recurse |
+        $Subfolders = @(Get-ChildItem -LiteralPath $Path.ToString() -Directory -Recurse |
             Where-Object {$_.Name -notmatch $IgnoredFolders} |
-            Foreach-Object {Resolve-Path -LiteralPath $_.Name}
+            Select-Object -ExpandProperty FullName)
+
+        $Subfolders+= (Resolve-Path -LiteralPath $Path).Path
+
+        foreach($Folder in $Subfolders){
+            if(Get-ChildItem -LiteralPath $Folder -File){
+                Write-Output $Folder
+            }
+        }
     }
 
     END {}
@@ -107,7 +115,9 @@ function generateSearchString {
         $SearchString += $Metadata.$Property + " "
     }
 
-    return ($SearchString -replace "[(\[][^)\]]+[)\]]","")
+    Write-Debug "generateSearchString: $SearchString"
+
+    return $SearchString
 }
 
 function removeInvalidFileNameChars {
@@ -148,7 +158,7 @@ function getTargetPath {
     } else {
         $AlbumArtist = removeInvalidFilenameChars -String $MetaData.AlbumArtist
         $ArtistFolder = Join-Path $RootPath $AlbumArtist
-        $Filename = "{0}-{1:d2} - {2}" -f $MetaData.DiscNumber, $MetaData.TrackNumber, $MetaData.Artist, $MetaData.Name
+        $Filename = "{0}-{1:d2} - {2}" -f $MetaData.DiscNumber, $MetaData.TrackNumber, $MetaData.Name
     }
 
     $Album = removeInvalidFilenameChars -String $MetaData.Album
@@ -174,21 +184,100 @@ function refineSearchResults {
         $MetaData,
 
         [Parameter(Position=1, ValueFromPipeline)]
-        $Results
+        $Target
     )
 
-    BEGIN {}
+    BEGIN {
+        $Album = $MetaData.Album -replace "[(\[][^)\]]+[)\]]",""
+        $Album = $Album -replace '[\W-[ ]]','.?'
+        $Name = $MetaData.Name -replace "[(\[][^)\]]+[)\]]",""
+        $Name = $Name -replace '[\W-[ ]]','.?'
+
+        Write-Debug "refineSearchResults: Refining for $Album, $Name, track $($MetaData.TrackNumber)"
+    }
 
     PROCESS {
-        $Album = $MetaData.Album -replace "[(\[][^)\]]+[)\]]",""
-        $Name = $MetaData.Name -replace "[(\[][^)\]]+[)\]]",""
-
-        $Results | Where-Object {$_.Album -match $Album.trim() `
+        $Target | Where-Object {$_.Album -match $Album.trim() `
             -and $_.Name -match $Name.trim() `
             -and $_.TrackNumber -eq $MetaData.TrackNumber}
     }
     
     END {}
+}
+
+function moveFileToiTunes {
+    [CmdletBinding(SupportsShouldProcess,DefaultParameterSetName="Update")]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        $File,
+
+        [Parameter(Mandatory,ParameterSetName="Update")]
+        [ValidateNotNullOrEmpty()]
+        [ref]$Target,
+        
+        [Parameter(ParameterSetName="Add")]
+        [switch]
+        $AddNew,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string]
+        $iTunesMediaPath = $script:iTunesMediaPath
+    )
+
+    Write-Debug ("moveFileToiTunes: Updating iTunes track: {0} - {1} - {2} track {3}." -f `
+        $Target.Value.Artist, $Target.Value.Album, $Target.Value.Name, $Target.Value.TrackNumber)
+
+    if($AddNew){
+        $TargetPath = Join-Path $iTunesMediaPath "Automatically Add to iTunes"
+    } else {
+        $TargetPath = getTargetPath -MetaData $File -iTunesMediaPath $iTunesMediaPath
+        $Status = "Updated"
+    }
+
+    if($PSCmdlet.ShouldProcess($File.Location,"Move-Item")){
+        Write-Debug "moveFileToiTunes: Copying source file to: $TargetPath"
+
+        try {
+            Copy-Item -LiteralPath $File.Location -Destination $TargetPath -Force -ErrorAction Stop
+        } catch {
+            Write-Error $_.ToString()
+            return "Failed to copy file"
+        }
+    }
+    
+    if($AddNew){
+        $Status = "Added to iTunes"
+    } elseif($PSCmdlet.ShouldProcess($TargetPath,"Update iTunes Location")){
+
+        if(-not (Test-Path -LiteralPath $TargetPath)){
+            Write-Error "$TargetPath missing"
+            return "Failed to copy file"
+        }
+        
+        try {
+            $Target.Value.Location = $TargetPath
+        } catch {
+            Write-Error $_.ToString()
+            Write-Warning "moveFileToiTunes: Removing $TargetPath"
+            Remove-Item -LiteralPath $TargetPath -Force
+            return "Failed to update iTunes"
+        } 
+    }
+
+    if($PSCmdlet.ShouldProcess($File.Location,"Remove-Item")){
+        Write-Debug "moveFileToiTunes: Removing source file: $($File.Location)"
+
+        try {
+            Remove-Item -LiteralPath $File.Location -Force -ErrorAction Stop
+        } catch {
+            Write-Warning "moveFileToiTunes: Failed to remove source file"
+        }
+    }
+
+    return $Status    
 }
 
 #endregion
@@ -217,7 +306,7 @@ if($UniqueCheck -gt 1){
     exit 1
 }
 
-Write-Debug "Processing $($FileData.Count) files"
+Write-Information "Processing $($FileData.Count) files"
 
 ###############################################################################
 # Find matching track in iTunes, move the source file and update the file location
@@ -227,85 +316,44 @@ $Progress = 0
 
 foreach($File in $FileData){
     $Progress++
-    $Results = $null
+    $Target = $null
     $Properties = @("Name", "Album")
 
     if($File | hasEmptyProperties -Property $Properties){
         continue
     }
 
+    Write-Verbose "Processing source file: $($File.Location)"
+    
     Write-Progress -Activity "Processing source files" -CurrentOperation $File.Location `
         -PercentComplete ([math]::floor(($Progress/$FileData.Count)*100))
 
     $obj = $File | Select-Object -Property Location,Status
 
-    Write-Debug "Processing source file: $($File.Location)"
-    
     do {
         $Search = generateSearchString -MetaData $File -Properties $Properties
-        $Results = Search-iTunesLibrary -Search $Search | refineSearchResults -MetaData $File
+        $Target = @(Search-iTunesLibrary -Search $Search | refineSearchResults -MetaData $File)
+        Write-Debug "$($Target.Count) results after refining"
         $Properties[-1]=$null
         $Properties = $Properties -ne $null
-    } while ($Properties -and $Results.Count -ne 1)
+    } while ($Properties -and $Target.Count -ne 1)
 
-    if(-not $Results){
-        Write-Warning ("Failed to match in iTunes: {0} - {1} - {2}" -f $File.Album, $File.Artist, $File.Name)
-        $obj.Status = "Missing"
-        [void]$Output.Add($obj)
-        continue
+    if($Target.Count -gt 0){
+        if([string]::IsNullOrWhiteSpace($Target.Location) -or $Force){
+            $obj.Status = moveFileToiTunes -File $File -Target ([ref]$Target[0])
+        } else {
+            Write-Verbose "File already present: $($Target.Location)"
+            $obj.Status = "Skipped"
+            # Move or delete this duplicate file?
+            # Check the target iTunes track for "re-rip" label?
+        }    
+    } elseif($AddMissing){
+        Write-Verbose ("Adding new file to iTunes: {0} - {1} - {2}" -f $File.Album, $File.Artist, $File.Name)
+        $obj.Status = moveFileToiTunes -File $File -Add
+    } else {
+        Write-Warning ("Failed to match in iTunes: $Search")
+        $obj.Status = "Missing in iTunes"
     }
-
-    if(-not [string]::IsNullOrWhiteSpace($Results.Location)){
-        Write-Warning "File present: $($Results.Location)"
-        $obj.Status = "Skipped"
-        [void]$Output.Add($obj)
-        # Move or delete this duplicate file?
-        # Check the target iTunes track for "re-rip" label?
-        continue
-    }
-
-    Write-Debug ("Updating iTunes track: {0} - {1} - {2}" -f $Results.Album, $Results.Artist, $Results.Name)
-    
-    $TargetPath = getTargetPath -MetaData $File -iTunesMediaPath $iTunesMediaPath
-
-    if($PSCmdlet.ShouldProcess($File.Location,"Move-Item")){
-        Write-Debug "Copying source file to: $TargetPath"
-
-        try {
-            Copy-Item -LiteralPath $File.Location -Destination $TargetPath -Force -ErrorAction Stop
-        } catch {
-            Write-Warning "Failed"
-            $obj.Status = "Failed to copy file"
-            [void]$Output.Add($obj)
-            continue
-        }
-    }
-
-    if($PSCmdlet.ShouldProcess($TargetPath,"Update iTunes Location")){
-        try {
-            $Results.Location = $TargetPath
-        } catch {
-            Write-Warning "Failed to update iTunes"
-            Write-Debug "$($File.Location) > $($TargetPath)"
-            $obj.Status = "Failed"
-            [void]$Output.Add($obj)
-
-            Remove-Item -LiteralPath $TargetPath -Force -ErrorAction Stop
-            throw
-        } 
-    }
-
-    if($PSCmdlet.ShouldProcess($File.Location,"Remove-Item")){
-        Write-Debug "Removing source file: $($File.Location)"
-
-        try {
-            Remove-Item -LiteralPath $File.Location -Force -ErrorAction Stop
-        } catch {
-            Write-Warning "Failed to remove source file"
-        }
-    }
-
-    $obj.Status = "Updated"
 
     [void]$Output.Add($obj)
 }
@@ -313,133 +361,3 @@ foreach($File in $FileData){
 Write-Progress -Activity "Processing source files" -Completed
 
 Write-Output $Output
-
-<#
-function findFileDataMatchingTrack {
-    param(
-        $FileData,
-        $iTunesTrack
-    )
-
-    $TrimmedAlbum = ($iTunesTrack.Album -replace '(^the|the$)',"").Trim(" ,")
-    $TrimmedArtist = ($iTunesTrack.Artist -replace '(^the|the$)',"").Trim(" ,")
-
-    $MatchingFile = $FileData | Where-Object {`
-        ($_.Album -match $TrimmedAlbum) -and `
-        ($_.Artist -match $TrimmedArtist) -and `
-        ([int]$_.TrackNumber -eq [int]$iTunesTrack.TrackNumber)}
-    
-    if($MatchingFile.Count -gt 1){
-        $Warning = "Multiple matches for"
-    } elseif($MatchingFile){
-        return $MatchingFile.File
-    } else {
-        $Warning = "Could not find File matching iTunes entry for"
-    }
-
-    $Warning+= ": $($iTunesTrack.Artist) "
-    $Warning+= "~ $($iTunesTrack.Album) "
-    $Warning+= "~ $($iTunesTrack.TrackNumber)"
-    Write-Warning $Warning
-
-    return $null
-}
-
-function updateMediaLocation {
-    [CmdletBinding(SupportsShouldProcess)]
-    param(
-        [Parameter(ValueFromPipeline)]
-        $FileData,
-
-        [Parameter(Mandatory)]
-        [string]
-        $Source,
-
-        [Parameter(Mandatory)]
-        [string]
-        $Destination
-    )
-
-    BEGIN {}
-
-    PROCESS {
-        $OldLocation = $FileData.File
-        $NewLocation = $FileData.File -replace [Regex]::Escape($Source),$Destination
-        
-        $NewFolder = New-Item (Split-Path $NewLocation -Parent) -ItemType Directory -Force
-        
-        $NewName = (Split-Path $FileData.File -Leaf) -replace '(\d+)-(.+)','$1 $2'
-
-        $NewLocation = Join-Path $NewFolder $NewName
-        
-        if($PSCmdlet.ShouldProcess($FileData.File,"Update FileData")){
-            $FileData.File = $NewLocation
-            Write-Debug "Moving file from: $OldLocation"
-            Write-Warning "Moving file to: $NewLocation"
-        }
-        
-        Move-Item -LiteralPath $OldLocation -Destination $NewLocation
-
-        if(-not (Test-Path -LiteralPath $NewLocation)){
-            Write-Warning "Failed to move $OldLocation"
-        } else {
-            # Move any album art
-            Get-ChildItem -Path (Split-Path $OldLocation -Parent) *.jpg |
-                Foreach-Object {
-                    Write-Debug "Moving $($_.FullName) to $NewFolder"
-                    Move-Item -LiteralPath $_.FullName -Destination $NewFolder
-                }
-
-            Write-Output $FileData
-        }
-    }
-
-    END {
-    }
-}
-
-function filterAlbums {
-    [CmdletBinding()]
-    param(
-        [Parameter(ValueFromPipeline)]
-        $FileData,
-
-        [Parameter(Mandatory)]
-        [string]
-        $ByArtist
-    )
-
-    BEGIN {}
-
-    PROCESS {
-        Write-Output ($FileData | Where-Object {$_.AlbumArtist -eq $ByArtist}).Album | Select-Object -Unique
-    }
-
-    END {}
-}
-
-foreach($AlbumArtist in ($FileData.AlbumArtist | Select-Object -Unique)){
-
-    foreach($Album in ($FileData | filterAlbums -ByArtist $AlbumArtist)){
-        
-        Write-Verbose "Finding matching items in iTunes library"
-        $TrimmedArtist = ($Artist -replace "the","").Trim(" ,.")
-        $iTunesTracks = Search-iTunesLibrary -AlbumName $Album -ArtistName $TrimmedArtist
-
-        if(-not $iTunesTracks){
-            continue
-        }
-
-        Write-Verbose "Matching up iTunes tracks to new file"
-
-        foreach($iTunesTrack in $iTunesTracks){
-            $Location = findFileDataMatchingTrack -FileData $FileData -iTunesTrack $iTunesTrack
-
-            if($Location -and $PSCmdlet.ShouldProcess($iTunesTrack.Name,"Update File Location")){
-                Write-Debug $Location
-                $iTunesTrack.Location = $Location
-            }
-        }
-    }
-}
-#>
