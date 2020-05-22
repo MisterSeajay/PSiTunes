@@ -39,11 +39,15 @@ function Search-iTunesLibrary {
         $Search = "$Artist $Album $Name"
     }
     
-    # Run search
-    $SearchString = $Search.Trim() -replace '  ',' '
-    
+    # Clean up search string
+    $SearchString = $Search
+    $SearchString = $SearchString -replace '[\[(][^\[)]+[\])]','' # Remove text in brackets
+    $SearchString = $SearchString -replace '[\W-[ ]]','' # Remove punctuation except for spaces
+    $SearchString = $SearchString -replace '\s{2,}',' '  # Remove unnecessarily wide spaces
+    $SearchString = $SearchString.trim()
+
     if($SearchString){
-        $SearchResults = $iTunesLibrary.Search($SearchString, $SearchType)
+        $SearchResults = @($iTunesLibrary.Search($SearchString, $SearchType))
     } else {
         Write-Error "Search string is empty"
         return $null
@@ -52,6 +56,8 @@ function Search-iTunesLibrary {
     if(-not $SearchResults){
         Write-Debug "Search returned no results for $SearchString"
         return $null
+    } else {
+        Write-Debug "Search returned $($SearchResults.Count) result(s)"
     }
 
     # Create a list of tracks from the search results
