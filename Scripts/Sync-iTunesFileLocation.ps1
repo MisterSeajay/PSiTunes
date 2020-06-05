@@ -9,8 +9,16 @@ param(
     $SourcePath = (Get-Location),
 
     [Parameter()]
+    [string]
+    $DuplicatePath = (Join-Path (Split-Path $SourcePath -Parent) "Duplicate"),
+
+    [Parameter()]
     [switch]
     $AddMissing,
+
+    [Parameter()]
+    [switch]
+    $MoveDuplicates,
 
     [Parameter()]
     [switch]
@@ -199,7 +207,8 @@ function refineSearchResults {
     PROCESS {
         $Target | Where-Object {$_.Album -match $Album.trim() `
             -and $_.Name -match $Name.trim() `
-            -and $_.TrackNumber -eq $MetaData.TrackNumber}
+            -and $_.TrackNumber -eq $MetaData.TrackNumber `
+            -and (($_.DiscNumber -eq $MetaData.DiscNumber) -or ($_.DiscNumber -lt 1))}
     }
     
     END {}
@@ -280,6 +289,34 @@ function moveFileToiTunes {
     return $Status    
 }
 
+function removeEmptyFolders {
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(ValueFromPipeline)]
+        [string]
+        $Path = (Get-Location).Path
+    )
+
+    $WhatIfRemoved = New-Object -TypeName System.Collections.ArrayList
+
+    do {
+        $Removed = $false
+        $Folders = Get-ChildItem -LiteralPath $Path -Directory -Recurse
+        $Folders = $Folders.where{$_.Fullname -notin $WhatIfRemoved}
+
+        foreach($Folder in $Folders) {
+            if(($Folder.GetFiles().Count -eq 0) -and ($Folder.GetDirectories().Count -eq 0)) {
+                if($PSCmdlet.ShouldProcess($Folder.Fullname,"Remove-Item")){
+                    Remove-Item -LiteralPath $Folder.Fullname -ErrorAction Stop
+                    $Removed = $true
+                } else {
+                    $WhatIfRemoved.Add($Folder.Fullname) | Out-Null
+                }
+            }
+        }
+    } while ($Removed)
+}
+
 #endregion
 ###############################################################################
 
@@ -302,7 +339,7 @@ $UniqueCheck = ($FileData | Group-Object Album,Name | Measure-Object -Property C
 
 if($UniqueCheck -gt 1){
     Write-Warning "Some combinations of Album & Track name are not unique:"
-    Write-Warning ($FileData | Group-Object Album,Name | Where-Object{$_.Count -gt 1} | Format-Table Album,Name | Out-String)
+    Write-Warning ($FileData | Group-Object Album,Name | Where-Object{$_.Count -gt 1} | Format-Table Count, Name | Out-String)
     exit 1
 }
 
@@ -339,13 +376,11 @@ foreach($File in $FileData){
     } while ($Properties -and $Target.Count -ne 1)
 
     if($Target.Count -gt 0){
-        if([string]::IsNullOrWhiteSpace($Target.Location) -or $Force){
+        if([string]::IsNullOrWhiteSpace($Target.Location) -or ($Target.Grouping -match 're-?rip') -or $Force){
             $obj.Status = moveFileToiTunes -File $File -Target ([ref]$Target[0])
         } else {
             Write-Verbose "File already present: $($Target.Location)"
-            $obj.Status = "Skipped"
-            # Move or delete this duplicate file?
-            # Check the target iTunes track for "re-rip" label?
+            $obj.Status = "Duplicate"
         }    
     } elseif($AddMissing){
         Write-Verbose ("Adding new file to iTunes: {0} - {1} - {2}" -f $File.Album, $File.Artist, $File.Name)
@@ -359,5 +394,26 @@ foreach($File in $FileData){
 }
 
 Write-Progress -Activity "Processing source files" -Completed
+
+if($MoveDuplicates){
+    $Output.where{$_.Status -eq "Duplicate"} |
+        Foreach-Object {
+            $params = @{
+                LiteralPath = $_.Location
+                Destination = ($_.Location -replace [regex]::Escape($SourcePath),$DuplicatePath)
+            }
+
+            $DestinationFolder = Split-Path $params.Destination -Parent
+            New-Item -Path $DestinationFolder -ItemType Directory -Force | Out-Null
+
+            try {
+                Move-Item @params -ErrorAction Stop
+            } catch {
+                Write-Warning "Failed to move duplicate: $($params.LiteralPath)"
+            }
+        }
+}
+
+removeEmptyFolders -Path $SourcePath
 
 Write-Output $Output
