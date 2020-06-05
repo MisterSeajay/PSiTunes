@@ -45,7 +45,6 @@ function getDataFromFileAttributes {
             Write-Progress @ProgressParams
 
             if(($Glob | Foreach-Object{$Item.Name -like $_}) -contains $true -and -not $Item.IsFolder){
-                # Write-Debug "getDataFromFileAttributes: Reading $($Item.Name)"
                 $Count=0
                 $Object = New-Object PSObject
                 $Object | Add-Member NoteProperty FullName $Item.Path
