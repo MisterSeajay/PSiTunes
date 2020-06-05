@@ -26,10 +26,7 @@ function getDataFromFileAttributes {
             $Glob = Split-Path $Path -Leaf
             $Path = Split-Path $Path -Parent
         }
-
-        # Write-Debug "getDataFromFileAttributes: `$Path = ""$Path"""
-        # Write-Debug "getDataFromFileAttributes: `$Glob = ""$Glob"""
-        
+       
         $Folder = $Shell.Namespace($Path)
       
         $Items = $Folder.Items()
@@ -38,8 +35,14 @@ function getDataFromFileAttributes {
 
         foreach ($Item in $Items) {
             $ItemCount++
-            Write-Progress -Id $Depth -ParentId ($Depth - 1) -Activity "getDataFromFileAttributes" `
-                -CurrentOperation $Item.Name -PercentComplete ([math]::Floor(100 * ($ItemCount/$ItemTotal))) 
+            $ProgressParams = @{
+                Id = $Depth
+                ParentId = $Depth - 1
+                Activity = "getDataFromFileAttributes ($Folder)"
+                CurrentOperation = $Item.Name
+                PercentComplete = ([math]::Floor(100 * ($ItemCount/$ItemTotal))) 
+            }
+            Write-Progress @ProgressParams
 
             if(($Glob | Foreach-Object{$Item.Name -like $_}) -contains $true -and -not $Item.IsFolder){
                 # Write-Debug "getDataFromFileAttributes: Reading $($Item.Name)"
