@@ -30,10 +30,12 @@ param(
 
     [Parameter()]
     [int]
-    $FolderLimit = 1
+    $FolderLimit = 0
 )
 
-Import-Module S:\PowerShell\psiTunes -Force -Verbose:$false
+Set-StrictMode -Version 2
+
+Import-Module S:\PowerShell\Modules\PSiTunes\PSiTunes.psd1 -Force -Verbose:$false
 
 ###############################################################################
 # internal functions
@@ -330,17 +332,20 @@ if($UseiTunesMedia){
     $FileData = $Files | Get-FileMetadata -RootPath $iTunesMusicPath
 } else {
     $Folders = getWindowsMediaFolders -Path (Resolve-Path -LiteralPath $SourcePath)
-    $FileData = $Folders | Select-Object -First $FolderLimit | Get-FileMetadata -RootPath $SourcePath
+    if($FolderLimit -gt 0){
+        $Folders = $Folders | Select-Object -First $FolderLimit
+    }
+    $FileData = $Folders | Get-FileMetadata -RootPath $SourcePath
 }
 
 $FileData = @($FileData | Where-Object {-not [string]::IsNullOrEmpty($_.Location)})
 
-$UniqueCheck = ($FileData | Group-Object Album,Name | Measure-Object -Property Count -Maximum).Maximum
+$UniqueCheck = $FileData | Group-Object Album, Name
 
-if($UniqueCheck -gt 1){
+if(($UniqueCheck | Measure-Object -Property Count -Maximum).Maximum -gt 1){
     Write-Warning "Some combinations of Album & Track name are not unique:"
-    Write-Warning ($FileData | Group-Object Album,Name | Where-Object{$_.Count -gt 1} | Format-Table Count, Name | Out-String)
-    exit 1
+    Write-Warning ($UniqueCheck | Where-Object{$_.Count -gt 1} | Format-Table Count, Name | Out-String)
+    $FileData = $FileData | Where-Object {$_.Album -notin $UniqueCheck.Name.split(",")[0]}
 }
 
 Write-Information "Processing $($FileData.Count) files"
