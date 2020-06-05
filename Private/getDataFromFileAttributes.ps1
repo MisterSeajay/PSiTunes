@@ -6,7 +6,7 @@ function getDataFromFileAttributes {
 
         [Parameter()]
         [Alias("Filename","Name")]
-        [string]$Glob = '*.mp3',
+        [string[]]$Glob = @('*.mp3', '*.m4a', '*.m4p'),
 
         [Parameter()]
         [switch]$Recurse,
@@ -41,7 +41,7 @@ function getDataFromFileAttributes {
             Write-Progress -Id $Depth -ParentId ($Depth - 1) -Activity "getDataFromFileAttributes" `
                 -CurrentOperation $Item.Name -PercentComplete ([math]::Floor(100 * ($ItemCount/$ItemTotal))) 
 
-            if($Item.Name -like $Glob -and -not $Item.IsFolder){
+            if(($Glob | Foreach-Object{$Item.Name -like $_}) -contains $true -and -not $Item.IsFolder){
                 # Write-Debug "getDataFromFileAttributes: Reading $($Item.Name)"
                 $Count=0
                 $Object = New-Object PSObject

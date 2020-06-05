@@ -31,16 +31,19 @@ function Get-FileMetadata {
 
         switch($Method){
             "FileAttributes" {
+                $params = @{}
+
                 if(Test-Path -LiteralPath $FullName -PathType Leaf) {
-                    $Filename = Split-Path $FullName -Leaf
-                    $FullName = Split-Path $FullName -Parent
+                    $params.Path = Split-Path $FullName -Parent
+                    $params.Glob = Split-Path $FullName -Leaf
                 } elseif($Recurse) {
-                    $Filename = "*"
+                    $params.Path = $Fullname
+                    $params.Glob = "*"
                 } else {
-                    $Filename = "*.mp3"
+                    $params.Path = $Fullname
                 }
         
-                $FileMetadata = getDataFromFileAttributes -Path $FullName -Name $Filename
+                $FileMetadata = getDataFromFileAttributes @params
 
                 if($FileMetadata -and -not $Raw){
                     $FileMetadata = ($FileMetadata | convertFromFileAttributes)
