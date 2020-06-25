@@ -27,8 +27,8 @@ function Search-iTunesLibrary {
         $Name = "",
         
         [Parameter()]
-        [SearchTypes]
-        $SearchType = [SearchTypes]::ITPlaylistSearchFieldAll,
+        [ITPlaylistSearchField]
+        $SearchType = [ITPlaylistSearchField]::ITPlaylistSearchFieldAll,
         
         [Parameter()]
         [System.Object]
