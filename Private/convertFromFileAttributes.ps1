@@ -1,5 +1,6 @@
 function convertFromFileAttributes {
     [CmdletBinding()]
+    [OutputType([MusicFile])]
     param(
         [Parameter(ValueFromPipeline)]
         [ValidateNotNullOrEmpty()]
@@ -25,10 +26,11 @@ function convertFromFileAttributes {
             "Year"
             "Comments"
             "Location"
+            "Bit rate"
         )
     }
 
-    PROCESS {
+    PROCESS {       
         $InputObject = $InputObject | Select-Object $AllowedAttributes
 
         $Compilation = ($InputObject.Compilation, ($InputObject.FullName -match "(compilation|various artist)")) | Select-Object -First 1
@@ -41,7 +43,7 @@ function convertFromFileAttributes {
             $Disc = 1
         }
 
-        return ([PSCustomObject]@{
+        $CleanedData = [PSCustomObject]@{
             Name = [string]$InputObject.Title
             Album = [string]$InputObject.Album
             Artist = [string](($InputObject.Artist, $InputObject."Contributing artists") | Select-Object -First 1)
@@ -58,7 +60,16 @@ function convertFromFileAttributes {
             Year = [int]$InputObject.Year
             Comment = [string]$InputObject.Comments
             Location = [string]$InputObject.FullName
-        })
+            BitRate = [int]($InputObject."Bit rate" -replace ('\D',''))
+        }
+        
+        try {
+            $MusicFile = $CleanedData -as [MusicFile]
+        } catch {
+            Write-Error "Unable to convert $($InputObject.Fullname) to [MusicFile]"
+        }
+
+        return $MusicFile
     }
 
     END {}
