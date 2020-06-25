@@ -38,7 +38,7 @@ function getDataFromFileAttributes {
             $ProgressParams = @{
                 Id = $Depth
                 ParentId = $Depth - 1
-                Activity = "getDataFromFileAttributes ($Folder)"
+                Activity = "getDataFromFileAttributes: $($Folder.Title)"
                 CurrentOperation = $Item.Name
                 PercentComplete = ([math]::Floor(100 * ($ItemCount/$ItemTotal))) 
             }
