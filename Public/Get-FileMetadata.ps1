@@ -1,4 +1,6 @@
 function Get-FileMetadata {
+    [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([MusicFile])]
     param(
         [Parameter(Position=0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
@@ -23,11 +25,9 @@ function Get-FileMetadata {
 
     BEGIN {
     }
-
     PROCESS {
-        # Write-Debug $Path
-
         $FullName = (Resolve-Path -LiteralPath $Path).ToString()
+        Write-Debug $Fullname
 
         switch($Method){
             "FileAttributes" {
