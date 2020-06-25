@@ -235,7 +235,11 @@ function moveFileToiTunes {
         [Parameter()]
         [ValidateNotNullOrEmpty()]
         [string]
-        $iTunesMediaPath = $script:iTunesMediaPath
+        $iTunesMediaPath = $script:iTunesMediaPath,
+
+        [Parameter()]
+        [string]
+        $Reason = "Updated"
     )
 
     Write-Debug ("moveFileToiTunes: Updating iTunes track: {0} - {1} - {2} track {3}." -f `
@@ -245,7 +249,7 @@ function moveFileToiTunes {
         $TargetPath = Join-Path $iTunesMediaPath "Automatically Add to iTunes"
     } else {
         $TargetPath = getTargetPath -MetaData $File -iTunesMediaPath $iTunesMediaPath
-        $Status = "Updated"
+        $Status = $Reason
     }
 
     if($PSCmdlet.ShouldProcess($File.Location,"Move-Item")){
@@ -260,7 +264,7 @@ function moveFileToiTunes {
     }
     
     if($AddNew){
-        $Status = "Added to iTunes"
+        # We don't need to update an existing track
     } elseif($PSCmdlet.ShouldProcess($TargetPath,"Update iTunes Location")){
 
         if(-not (Test-Path -LiteralPath $TargetPath)){
@@ -338,14 +342,18 @@ if($UseiTunesMedia){
     $FileData = $Folders | Get-FileMetadata -RootPath $SourcePath
 }
 
-$FileData = @($FileData | Where-Object {-not [string]::IsNullOrEmpty($_.Location)})
+try {
+    $FileData = @($FileData.where{$_.Exists()})
+} catch {
+    Write-Warning "Problem processing $FileData"
+}
 
 $UniqueCheck = $FileData | Group-Object Album, Name
 
 if(($UniqueCheck | Measure-Object -Property Count -Maximum).Maximum -gt 1){
     Write-Warning "Some combinations of Album & Track name are not unique:"
     Write-Warning ($UniqueCheck | Where-Object{$_.Count -gt 1} | Format-Table Count, Name | Out-String)
-    $FileData = $FileData | Where-Object {$_.Album -notin $UniqueCheck.Name.split(",")[0]}
+    $FileData = @($FileData | Where-Object {$_.Album -notin $UniqueCheck.Name.split(",")[0]})
 }
 
 Write-Information "Processing $($FileData.Count) files"
@@ -381,15 +389,21 @@ foreach($File in $FileData){
     } while ($Properties -and $Target.Count -ne 1)
 
     if($Target.Count -gt 0){
-        if([string]::IsNullOrWhiteSpace($Target.Location) -or ($Target.Grouping -match 're-?rip') -or $Force){
+        if([string]::IsNullOrWhiteSpace($Target.Location) -or $Force){
             $obj.Status = moveFileToiTunes -File $File -Target ([ref]$Target[0])
+        } elseif($Target.Grouping -match 're-?rip') {
+            Write-Debug "Target track flagged for re-rip"
+            $obj.Status = moveFileToiTunes -File $File -Target ([ref]$Target[0]) -Reason "Re-rip"
+        } elseif($File.BitRate -gt $Target.BitRate) {
+            Write-Debug "Source file has higher quality"
+            $obj.Status = moveFileToiTunes -File $File -Target ([ref]$Target[0]) -Reason "Update quality"
         } else {
             Write-Verbose "File already present: $($Target.Location)"
             $obj.Status = "Duplicate"
         }    
     } elseif($AddMissing){
         Write-Verbose ("Adding new file to iTunes: {0} - {1} - {2}" -f $File.Album, $File.Artist, $File.Name)
-        $obj.Status = moveFileToiTunes -File $File -Add
+        $obj.Status = moveFileToiTunes -File $File -Add -Reason "Add new file"
     } else {
         Write-Warning ("Failed to match in iTunes: $Search")
         $obj.Status = "Missing in iTunes"
