@@ -1,6 +1,6 @@
 function Get-FileMetadata {
     [CmdletBinding(SupportsShouldProcess)]
-    [OutputType([MusicFile])]
+    [OutputType([MusicFileInfo[]])]
     param(
         [Parameter(Position=0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
@@ -25,6 +25,7 @@ function Get-FileMetadata {
 
     BEGIN {
     }
+    
     PROCESS {
         $FullName = (Resolve-Path -LiteralPath $Path).ToString()
         Write-Debug $Fullname
@@ -48,6 +49,8 @@ function Get-FileMetadata {
                 if($FileMetadata -and -not $Raw){
                     $FileMetadata = ($FileMetadata | convertFromFileAttributes)
                 }
+
+                break
             }
             
             "FilePath" {
@@ -55,6 +58,8 @@ function Get-FileMetadata {
                 if($FileMetadata -and -not $Raw){
                     $FileMetadata = ($FileMetadata | convertFromFileAttributes)
                 }
+
+                break
             }
 
             "TagLib" {

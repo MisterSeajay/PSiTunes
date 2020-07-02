@@ -1,6 +1,6 @@
 function convertFromFileAttributes {
     [CmdletBinding()]
-    [OutputType([MusicFile])]
+    [OutputType([MusicFileInfo])]
     param(
         [Parameter(ValueFromPipeline)]
         [ValidateNotNullOrEmpty()]
@@ -64,12 +64,12 @@ function convertFromFileAttributes {
         }
         
         try {
-            $MusicFile = $CleanedData -as [MusicFile]
+            $MusicFileInfo = $CleanedData -as [MusicFileInfo]
         } catch {
-            Write-Error "Unable to convert $($InputObject.Fullname) to [MusicFile]"
+            Write-Error "Unable to convert $($InputObject.Fullname) to [MusicFileInfo]"
         }
 
-        return $MusicFile
+        return $MusicFileInfo
     }
 
     END {}

@@ -1,4 +1,4 @@
-Class MusicFile {
+Class MusicFileInfo {
     [string]$Name;          # Title of the track
     [string]$Album;         # Name of the album the track is a part of
     [string]$Artist;        # Name of the artist for this track, aka "contributing artist"
@@ -16,14 +16,15 @@ Class MusicFile {
     [int]$Year;             # Year the track was released
     [string]$Location;      # Path to file on disk
     [string]$FullName;
-    [string]$Path
     [int]$BitRate;
-    MusicFile($InputObject) {
+    MusicFileInfo($InputObject) {
         foreach($prop in $InputObject.PSObject.Properties.Name){
             try {
                 $this.$prop = $InputObject.$prop
             } catch {
-                Write-Error "Failed to set $prop on new MusicFile object"
+                Write-Warning "Failed to set $prop on new MusicFileInfo object"
+                Write-Debug ($InputObject | FL | Out-String)
+                Write-Error $_.Message.ToString()
             }
         }
     }
@@ -32,5 +33,8 @@ Class MusicFile {
     }
     [string]ToString() {
         return ($this.Path, $this.FullName, $this.Location | Select-Object -First 1)
+    }
+    [string]Path() {
+        return $this.Location
     }
 }

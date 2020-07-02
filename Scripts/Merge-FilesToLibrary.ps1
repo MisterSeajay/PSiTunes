@@ -6,6 +6,7 @@ param(
 
     [Parameter()]
     [string]
+    #$SourcePath = "D:\Music\Shared",
     $SourcePath = (Get-Location),
 
     [Parameter()]
@@ -35,7 +36,9 @@ param(
 
 Set-StrictMode -Version 2
 
-Import-Module S:\PowerShell\Modules\PSiTunes\PSiTunes.psd1 -Force -Verbose:$false
+$cwd = Split-Path $MyInvocation.InvocationName -Parent
+$PSiTunes = Resolve-Path -Path (Join-Path $cwd "../PSiTunes.psd1")
+Import-Module $PSiTunes -Force -Verbose:$false
 
 ###############################################################################
 # internal functions
@@ -191,9 +194,11 @@ function refineSearchResults {
     [CmdletBinding()]
     param(
         [Parameter(Position=0, Mandatory)]
+        [ValidateNotNullOrEmpty()]
         $MetaData,
 
         [Parameter(Position=1, ValueFromPipeline)]
+        [ValidateNotNullOrEmpty()]
         $Target
     )
 
@@ -333,19 +338,28 @@ $iTunesMusicPath = Join-Path $iTunesMediaPath "Music"
 
 if($UseiTunesMedia){
     $Files = getFilesWithHyphens $iTunesMusicPath
-    $FileData = $Files | Get-FileMetadata -RootPath $iTunesMusicPath
+    $MusicFileInfos = $Files | Get-FileMetadata -RootPath $iTunesMusicPath
 } else {
     $Folders = getWindowsMediaFolders -Path (Resolve-Path -LiteralPath $SourcePath)
     if($FolderLimit -gt 0){
         $Folders = $Folders | Select-Object -First $FolderLimit
     }
-    $FileData = $Folders | Get-FileMetadata -RootPath $SourcePath
+    $MusicFileInfos = $Folders | Get-FileMetadata -RootPath $SourcePath
 }
 
-try {
-    $FileData = @($FileData.where{$_.Exists()})
-} catch {
-    Write-Warning "Problem processing $FileData"
+$FileData = New-Object -TypeName System.Collections.ArrayList
+
+foreach($MusicFileInfo in $MusicFileInfos){
+    try {
+        if($MusicFileInfo -and $MusicFileInfo.Exists()){
+            [void]$FileData.Add($MusicFileInfo)
+        }
+    } catch {
+        Write-Warning "$MusicFileInfo doesn't exist??"
+        Write-Debug ($MusicFileInfo | Format-List | Out-String)
+        throw
+        exit 1
+    }
 }
 
 $UniqueCheck = $FileData | Group-Object Album, Name
@@ -373,8 +387,6 @@ foreach($File in $FileData){
         continue
     }
 
-    Write-Verbose "Processing source file: $($File.Location)"
-    
     Write-Progress -Activity "Processing source files" -CurrentOperation $File.Location `
         -PercentComplete ([math]::floor(($Progress/$FileData.Count)*100))
 
@@ -382,8 +394,12 @@ foreach($File in $FileData){
 
     do {
         $Search = generateSearchString -MetaData $File -Properties $Properties
-        $Target = @(Search-iTunesLibrary -Search $Search | refineSearchResults -MetaData $File)
-        Write-Debug "$($Target.Count) results after refining"
+        $SearchResults = Search-iTunesLibrary -Search $Search
+        if($SearchResults){
+            $Target = @(refineSearchResults -MetaData $File -Target $SearchResults)
+        } else {
+            $Target = @()
+        }
         $Properties[-1]=$null
         $Properties = $Properties -ne $null
     } while ($Properties -and $Target.Count -ne 1)

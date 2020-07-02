@@ -63,9 +63,11 @@ enum ITVideoKind {
 
 ###################################################################################################
 # Classes
+# These are replicas of the types of (COM) object exposed by iTunes. The difference between these
+# and the COM objects are that the classes defined below don't support the many methods.
 #region
 
-Class ITObject {
+Class iTunesObjectInfo {
     [string]$Name           # Title of the track/playlist/etc.
     [int]$Index
     [int]$sourceID
@@ -75,14 +77,14 @@ Class ITObject {
 }
 
 <# Don't need to implement these yet...
-Class ITSource : ITObject {
+Class iTunesSourceInfo : ITObject {
     [ITSourceKind]$Kind;
     [int]$Capacity;
     [int]$FreeSpace;
     [ITPlaylistCollection]$Playlists;
 }
 
-Class iTunesPlaylist : ITObject {
+Class iTunesPlaylistInfo : ITObject {
     [ITPlaylistKind]$Kind;
     [ITSource]$Source;
     [int]$Duration;
@@ -95,7 +97,7 @@ Class iTunesPlaylist : ITObject {
 }
 #>
 
-Class ITTrack : ITObject {
+Class iTunesTrackInfo : iTunesObjectInfo {
     [ITTrackKind]$Kind;
     [__ComObject]$Playlist
     [string]$Album;         # Name of the album the track is a part of
@@ -132,7 +134,7 @@ Class ITTrack : ITObject {
 }
 
 # ITFileOrCDTrack
-Class ITFileOrCDTrack : ITTrack {
+Class iTunesFileOrCDTrackInfo : iTunesTrackInfo {
     [string]$Location;      # Path to file on disk
     [bool]$Podcast
     [bool]$RememberBookmark
@@ -167,7 +169,7 @@ Class ITFileOrCDTrack : ITTrack {
     [datetime]$ReleaseDate
 }
 
-Class iTunesTrack : ITFileOrCDTrack {
+Class iTunesTrackData : iTunesFileOrCDTrackInfo {
     iTunesTrack($InputObject) {
         foreach($prop in $InputObject.PSObject.Properties.Name){
             try {
