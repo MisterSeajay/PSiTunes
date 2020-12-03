@@ -247,16 +247,17 @@ function moveFileToiTunes {
         $Reason = "Updated"
     )
 
-    Write-Debug ("moveFileToiTunes: Updating iTunes track: {0} - {1} - {2} track {3}." -f `
-        $Target.Value.Artist, $Target.Value.Album, $Target.Value.Name, $Target.Value.TrackNumber)
-
     if($AddNew){
         $TargetPath = Join-Path $iTunesMediaPath "Automatically Add to iTunes"
     } else {
+        Write-Debug ("moveFileToiTunes: Updating iTunes track: {0} - {1} - {2} track {3}." -f `
+            $Target.Value.Artist, $Target.Value.Album, $Target.Value.Name, $Target.Value.TrackNumber)
+
         $TargetPath = getTargetPath -MetaData $File -iTunesMediaPath $iTunesMediaPath
-        $Status = $Reason
     }
 
+    $Status = $Reason
+    
     if($PSCmdlet.ShouldProcess($File.Location,"Move-Item")){
         Write-Debug "moveFileToiTunes: Copying source file to: $TargetPath"
 
