@@ -197,13 +197,17 @@ function cleanTextForRefining {
     param(
         [Parameter(ValueFromPipeline)]
         [string]
-        $InputObject
+        $InputObject,
+
+        [Parameter()]
+        [switch]
+        $ReplaceNonAlphaNumeric
     )
 
     BEGIN {
         $StuffInBrackets = '[(\[][^)\]]+[)\]]'
-        $WordsWeDontWant = '\b(the|of|a)\b'
-        $StuffToTrimAway = '(^\s+\W?|\W?\s+$)'
+        $WordsWeDontWant = '(^\s*the\b|\bthe\s*$)'
+        $StuffToTrimAway = '(^\s*\W?|\W?\s*$)'
         $NonAlphaNumeric = '[\W_-[ ]]'
     }
 
@@ -211,7 +215,9 @@ function cleanTextForRefining {
         $InputObject = $InputObject -replace $StuffInBrackets, ''
         $InputObject = $InputObject -replace $WordsWeDontWant, ''
         $InputObject = $InputObject -replace $StuffToTrimAway, ''
-        $InputObject = $InputObject -replace $NonAlphaNumeric, '.?'
+        if($ReplaceNonAlphaNumeric){
+            $InputObject = $InputObject -replace $NonAlphaNumeric, '.?'
+        }
         $InputObject = $InputObject -replace '\s+', ' '
         return $InputObject
     }
@@ -232,18 +238,18 @@ function refineSearchResults {
     )
 
     BEGIN {
-        $AlbumArtist = cleanTextForRefining $Metadata.AlbumArtist.split(',')[0]
-        $Album = cleanTextForRefining $MetaData.Album
-        $Name = cleanTextForRefining $MetaData.Name
+        $AlbumArtist = cleanTextForRefining ($Metadata.AlbumArtist.split('\W'))[0] -ReplaceNonAlphaNumeric
+        $Album = cleanTextForRefining ($MetaData.Album.split('\W'))[0] -ReplaceNonAlphaNumeric
+        $Name = cleanTextForRefining $MetaData.Name -ReplaceNonAlphaNumeric
 
         Write-Debug "refineSearchResults: Refining for $Album, $Name, track $($MetaData.TrackNumber)"
     }
 
     PROCESS {
         $Target | Where-Object { 1 -eq 1 `
-            -and $_.AlbumArtist -match $AlbumArtist `
-            -and $_.Album -match $Album `
-            -and $_.Name -match $Name `
+            -and (cleanTextForRefining $_.AlbumArtist) -match $AlbumArtist `
+            -and (cleanTextForRefining $_.Album) -match $Album `
+            -and (cleanTextForRefining $_.Name) -match $Name `
             -and $_.TrackNumber -eq $MetaData.TrackNumber}
     }
     
@@ -374,7 +380,7 @@ if($UseiTunesMedia){
     if($FolderLimit -gt 0){
         $Folders = $Folders | Select-Object -First $FolderLimit
     }
-    $MusicFileInfos = $Folders | Get-FileMetadata -RootPath $SourcePath
+    $MusicFileInfos = $Folders | Get-FileMetadata -RootPath $SourcePath -Method TagLib
 }
 
 $FileData = New-Object -TypeName System.Collections.ArrayList
@@ -391,6 +397,8 @@ foreach($MusicFileInfo in $MusicFileInfos){
         exit 1
     }
 }
+
+Write-Information "Checking $($FileData.Count) files for duplicates"
 
 $UniqueCheck = $FileData | Group-Object Album, Name
 

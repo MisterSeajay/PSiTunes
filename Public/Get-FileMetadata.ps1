@@ -66,17 +66,20 @@ function Get-FileMetadata {
                 $FileMetadata = if(Test-Path -LiteralPath $FullName -PathType Container){
                         Get-ChildItem $FullName | Foreach-Object {
                             if(Test-Path -LiteralPath $_.FullName -PathType Container){
-                                Get-FileMetadata $_.FullName
+                                Get-FileMetadata $_.FullName -Method TagLib
                             } else {
-                                getDataFromTagLib -Path $_.FullName
+                                $FilePath = $_.FullName
+                                getDataFromTagLib -Path $FilePath
                             }
                         }
                     } else {
-                        getDataFromTagLib -Path $FullName
+                        $FilePath = $FullName
+                        getDataFromTagLib -Path $FilePath
                     }
 
                 if($FileMetadata -and -not $Raw){
-                    $FileMetadata = ($FileMetadata | convertFromTagLibProperties)
+                    $FileMetadata = $FileMetadata |
+                        Foreach-Object {$_ | convertFromTagLibProperties}
                 }
 
                 break

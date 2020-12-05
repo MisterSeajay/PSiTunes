@@ -6,7 +6,15 @@ function getDataFromTagLib {
         $Path
     )
 
-    $TagLibFile = [TagLib.File]::Create((Resolve-Path -LiteralPath $Path))
-    Write-Output $TagLibFile.Tag
+    BEGIN {}
+
+    PROCESS {
+        $TagLibFile = [TagLib.File]::Create((Resolve-Path -LiteralPath $Path))
+        $DataFromTagLib =  $TagLibFile.Tag
+        $DataFromTagLib = $DataFromTagLib | Add-Member -MemberType NoteProperty -Name Location -Value $Path -PassThru
+        Write-Output $DataFromTagLib
+    }
+
+    END {}
 }
     
