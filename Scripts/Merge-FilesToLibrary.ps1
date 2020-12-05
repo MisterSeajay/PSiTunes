@@ -6,8 +6,8 @@ param(
 
     [Parameter()]
     [string]
-    #$SourcePath = "D:\Music\Shared",
-    $SourcePath = (Get-Location),
+    $SourcePath = "D:\Music\Ripped",
+    #$SourcePath = (Get-Location),
 
     [Parameter()]
     [string]
@@ -125,7 +125,9 @@ function generateSearchString {
     $SearchString = ""
 
     foreach($Property in $Properties){
-        $SearchString += $Metadata.$Property + " "
+        if($SearchString -notmatch [regex]::Escape($Metadata.$Property)){
+            $SearchString += $Metadata.$Property + " "
+        }
     }
 
     Write-Debug "generateSearchString: $SearchString"
@@ -190,32 +192,59 @@ function getTargetPath {
     return $TargetPath
 }
 
+function cleanTextForRefining {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline)]
+        [string]
+        $InputObject
+    )
+
+    BEGIN {
+        $StuffInBrackets = '[(\[][^)\]]+[)\]]'
+        $WordsWeDontWant = '\b(the|of|a)\b'
+        $StuffToTrimAway = '(^\s+\W?|\W?\s+$)'
+        $NonAlphaNumeric = '[\W_-[ ]]'
+    }
+
+    PROCESS {
+        $InputObject = $InputObject -replace $StuffInBrackets, ''
+        $InputObject = $InputObject -replace $WordsWeDontWant, ''
+        $InputObject = $InputObject -replace $StuffToTrimAway, ''
+        $InputObject = $InputObject -replace $NonAlphaNumeric, '.?'
+        $InputObject = $InputObject -replace '\s+', ' '
+        return $InputObject
+    }
+
+    END {}
+}
+
 function refineSearchResults {
     [CmdletBinding()]
     param(
         [Parameter(Position=0, Mandatory)]
         [ValidateNotNullOrEmpty()]
-        $MetaData,
+        $MetaData,      # Reference track, i.e. metadata from non-iTunes file
 
         [Parameter(Position=1, ValueFromPipeline)]
         [ValidateNotNullOrEmpty()]
-        $Target
+        $Target         # Search results (tracks) to refine against reference data
     )
 
     BEGIN {
-        $Album = $MetaData.Album -replace "[(\[][^)\]]+[)\]]",""
-        $Album = $Album -replace '[\W-[ ]]','.?'
-        $Name = $MetaData.Name -replace "[(\[][^)\]]+[)\]]",""
-        $Name = $Name -replace '[\W-[ ]]','.?'
+        $AlbumArtist = cleanTextForRefining $Metadata.AlbumArtist.split(',')[0]
+        $Album = cleanTextForRefining $MetaData.Album
+        $Name = cleanTextForRefining $MetaData.Name
 
         Write-Debug "refineSearchResults: Refining for $Album, $Name, track $($MetaData.TrackNumber)"
     }
 
     PROCESS {
-        $Target | Where-Object {$_.Album -match $Album.trim() `
-            -and $_.Name -match $Name.trim() `
-            -and $_.TrackNumber -eq $MetaData.TrackNumber `
-            -and (($_.DiscNumber -eq $MetaData.DiscNumber) -or ($_.DiscNumber -lt 1))}
+        $Target | Where-Object { 1 -eq 1 `
+            -and $_.AlbumArtist -match $AlbumArtist `
+            -and $_.Album -match $Album `
+            -and $_.Name -match $Name `
+            -and $_.TrackNumber -eq $MetaData.TrackNumber}
     }
     
     END {}
@@ -382,7 +411,7 @@ $Progress = 0
 foreach($File in $FileData){
     $Progress++
     $Target = $null
-    $Properties = @("Name", "Album")
+    $Properties = @("Name", "Album", "AlbumArtist")
 
     if($File | hasEmptyProperties -Property $Properties){
         continue
@@ -402,7 +431,7 @@ foreach($File in $FileData){
             $Target = @()
         }
         $Properties[-1]=$null
-        $Properties = $Properties -ne $null
+        $Properties = $Properties -ne $null #Ignore PSScriptAnalyzer; this filters out nulls
     } while ($Properties -and $Target.Count -ne 1)
 
     if($Target.Count -gt 0){
