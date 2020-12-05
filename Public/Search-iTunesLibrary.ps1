@@ -54,10 +54,10 @@ function Search-iTunesLibrary {
     }
     
     if(-not $SearchResults){
-        Write-Debug "Search returned no results for $SearchString"
+        Write-Debug "Search-iTunesLibrary: returned no results for $SearchString"
         return $null
     } else {
-        Write-Debug "Search returned $($SearchResults.Count) result(s)"
+        Write-Debug "Search-iTunesLibrary: returned $($SearchResults.Count) result(s)"
     }
 
     # Create a list of tracks from the search results
