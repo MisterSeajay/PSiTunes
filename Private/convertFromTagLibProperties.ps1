@@ -8,7 +8,7 @@ function convertFromTagLibProperties {
     BEGIN {}
 
     PROCESS {
-        $CleanedData = [PSCustomObject]@{
+        $MusicFileInfo = [PSCustomObject]@{
             Name = $InputObject.Title
             Album = $InputObject.Album
             Artist = $InputObject.FirstArtist
@@ -24,9 +24,10 @@ function convertFromTagLibProperties {
             Year = [int]$InputObject.Year
             Comment = $InputObject.Comment
             Location = $InputObject.Location
-        }
+            BitRate = $InputObject.BitRate
+        } -as [MusicFileInfo]
 
-        Write-Output ($CleanedData -as [MusicFileInfo])
+        Write-Output $MusicFileInfo
     }
 
     END {}
