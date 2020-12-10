@@ -37,8 +37,28 @@ param(
 Set-StrictMode -Version 2
 
 $cwd = Split-Path $MyInvocation.InvocationName -Parent
+if(-not $cwd){$cwd = (Get-Location).Path}
 $PSiTunes = Resolve-Path -Path (Join-Path $cwd "../PSiTunes.psd1")
 Import-Module $PSiTunes -Force -Verbose:$false
+
+###############################################################################
+# Default error handling
+#region
+
+trap {
+    Write-Warning "Error trapped in: $(Get-PSCallStack | Out-String)"
+    # Write-Debug "Script variables are: $(Get-Variable -Scope Script | Out-String))"
+    foreach($VariableName in ("Object", "Target", "File")){
+        if((Get-Variable).where{$_.Name -eq $VariableName}){
+            Write-Debug ("$_`n" + (Get-Variable $_ -ValueOnly | Out-String))
+        }
+    }
+    Write-Error $_
+    exit 1
+}
+
+#endregion
+###############################################################################
 
 ###############################################################################
 # internal functions
@@ -369,6 +389,7 @@ function removeEmptyFolders {
 
 ###############################################################################
 # Extract metadata from files to merge into iTunes
+#region
 
 $iTunesMusicPath = Join-Path $iTunesMediaPath "Music"
 
@@ -398,7 +419,12 @@ foreach($MusicFileInfo in $MusicFileInfos){
     }
 }
 
-Write-Information "Checking $($FileData.Count) files for duplicates"
+if(-not $FileData){
+    Write-Warning "No Music files found to process"
+    exit 0
+} else {
+    Write-Information "Checking $($FileData.Count) files for duplicates"
+}
 
 $UniqueCheck = $FileData | Group-Object Album, Name
 
@@ -407,6 +433,14 @@ if(($UniqueCheck | Measure-Object -Property Count -Maximum).Maximum -gt 1){
     Write-Warning ($UniqueCheck | Where-Object{$_.Count -gt 1} | Format-Table Count, Name | Out-String)
     $FileData = @($FileData | Where-Object {$_.Album -notin $UniqueCheck.Name.split(",")[0]})
 }
+
+# Simplify debug; remove variables that won't be used further
+Remove-Variable -Name MusicFileInfo
+Remove-Variable -Name MusicFileInfos
+Remove-Variable -Name UniqueCheck
+
+#endregion
+###############################################################################
 
 Write-Information "Processing $($FileData.Count) files"
 

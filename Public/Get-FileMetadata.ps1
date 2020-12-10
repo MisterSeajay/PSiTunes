@@ -64,7 +64,7 @@ function Get-FileMetadata {
 
             "TagLib" {
                 $FileMetadata = if(Test-Path -LiteralPath $FullName -PathType Container){
-                        Get-ChildItem $FullName | Foreach-Object {
+                        Get-ChildItem -LiteralPath $FullName | Foreach-Object {
                             if(Test-Path -LiteralPath $_.FullName -PathType Container){
                                 Get-FileMetadata $_.FullName -Method TagLib
                             } else {
