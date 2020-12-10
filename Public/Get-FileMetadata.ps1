@@ -14,7 +14,7 @@ function Get-FileMetadata {
         [Parameter()]
         [ValidateSet("FilePath", "FileAttributes", "TagLib")]
         [string]
-        $Method = "FileAttributes",
+        $Method = "TagLib",
 
         [switch]
         $Raw,
