@@ -258,11 +258,11 @@ function refineSearchResults {
     )
 
     BEGIN {
-        $AlbumArtist = cleanTextForRefining ($Metadata.AlbumArtist.split('\W'))[0] -ReplaceNonAlphaNumeric
-        $Album = cleanTextForRefining ($MetaData.Album.split('\W'))[0] -ReplaceNonAlphaNumeric
+        $AlbumArtist = cleanTextForRefining ($Metadata.AlbumArtist -split('\W'))[0] -ReplaceNonAlphaNumeric
+        $Album = cleanTextForRefining ($MetaData.Album -split('\W'))[0] -ReplaceNonAlphaNumeric
         $Name = cleanTextForRefining $MetaData.Name -ReplaceNonAlphaNumeric
 
-        Write-Debug "refineSearchResults: Refining for $Album, $Name, track $($MetaData.TrackNumber)"
+        Write-Debug "refineSearchResults: Refining $($Target.Count) results by: $Album, $Name, track $($MetaData.TrackNumber)"
     }
 
     PROCESS {
@@ -274,6 +274,30 @@ function refineSearchResults {
     }
     
     END {}
+}
+
+function matchSearchResultsExactly{
+    [CmdletBinding()]
+    param(
+        [Parameter(Position=0, Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        $MetaData,      # Reference track, i.e. metadata from non-iTunes file
+
+        [Parameter(Position=1, ValueFromPipeline)]
+        [ValidateNotNullOrEmpty()]
+        $Target         # Search results (tracks) to refine against reference data
+    )
+
+    PROCESS {
+        $Target | Where-Object { 1 -eq 1 `
+            -and ($_.AlbumArtist) -eq $Metadata.AlbumArtist `
+            -and ($_.Album) -eq $Metadata.Album `
+            -and ($_.Name) -eq $Metadata.Name `
+            -and $_.TrackNumber -eq $MetaData.TrackNumber}
+    }
+    
+    END {}
+
 }
 
 function moveFileToiTunes {
@@ -452,9 +476,11 @@ $Progress = 0
 
 foreach($File in $FileData){
     $Progress++
-    $Target = $null
-    $Properties = @("Name", "Album", "AlbumArtist")
 
+    Write-Verbose "Processing $($File.Location)"
+
+    # Skip files missing critical metadata
+    $Properties = @("Name", "Album", "AlbumArtist")
     if($File | hasEmptyProperties -Property $Properties){
         continue
     }
@@ -462,12 +488,18 @@ foreach($File in $FileData){
     Write-Progress -Activity "Processing source files" -CurrentOperation $File.Location `
         -PercentComplete ([math]::floor(($Progress/$FileData.Count)*100))
 
-    $obj = $File | Select-Object -Property Location,Status
+    ###########################################################################
+    # Find & refine potential targets in iTunes database
 
+    $Target = $null
     do {
         $Search = generateSearchString -MetaData $File -Properties $Properties
         $SearchResults = Search-iTunesLibrary -Search $Search
-        if($SearchResults){
+        $ExactMatch = matchSearchResultsExactly -MetaData $File -Target $SearchResults
+
+        if(@($ExactMatch).Count -eq 1){
+            $Target = @($ExactMatch)
+        } elseif(@($SearchResults).Count -gt 1){
             $Target = @(refineSearchResults -MetaData $File -Target $SearchResults)
         } else {
             $Target = @()
@@ -476,7 +508,15 @@ foreach($File in $FileData){
         $Properties = $Properties -ne $null #Ignore PSScriptAnalyzer; this filters out nulls
     } while ($Properties -and $Target.Count -ne 1)
 
-    if($Target.Count -gt 0){
+    ###########################################################################
+    # Work out what to do with the "source" file
+    
+    $obj = $File | Select-Object -Property Location,Status
+
+    if($Target.Count -gt 1){
+        Write-Warning ("Multiple matches in iTunes: $Search")
+        $obj.Status = "Multiple matches in iTunes"        
+    } elseif($Target.Count -eq 1) {
         if([string]::IsNullOrWhiteSpace($Target.Location) -or $Force){
             $obj.Status = moveFileToiTunes -File $File -Target ([ref]$Target[0])
         } elseif($Target.Grouping -match 're-?rip') {
