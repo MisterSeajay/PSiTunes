@@ -36,6 +36,8 @@ param(
 
 Set-StrictMode -Version 2
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSPossibleIncorrectComparisonWithNull', '', Scope='Script')]
+
 $cwd = Split-Path $MyInvocation.InvocationName -Parent
 if(-not $cwd){$cwd = (Get-Location).Path}
 $PSiTunes = Resolve-Path -Path (Join-Path $cwd "../PSiTunes.psd1")
@@ -79,7 +81,7 @@ function getWindowsMediaFolders {
     [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeline)]
-        [System.Management.Automation.PathInfo]
+        [string]
         $Path = (Get-Location)
     )
 
@@ -93,6 +95,7 @@ function getWindowsMediaFolders {
     }
     
     PROCESS {
+        $Path = Resolve-Path -LiteralPath $Path
         $Subfolders = @(Get-ChildItem -LiteralPath $Path.ToString() -Directory -Recurse |
             Where-Object {$_.Name -notmatch $IgnoredFolders} |
             Select-Object -ExpandProperty FullName)
@@ -419,7 +422,7 @@ if($UseiTunesMedia){
     $Files = getFilesWithHyphens $iTunesMusicPath
     $MusicFileInfos = $Files | Get-FileMetadata -RootPath $iTunesMusicPath
 } else {
-    $Folders = getWindowsMediaFolders -Path (Resolve-Path -LiteralPath $SourcePath)
+    $Folders = getWindowsMediaFolders -Path $SourcePath
     if($FolderLimit -gt 0){
         $Folders = $Folders | Select-Object -First $FolderLimit
     }
