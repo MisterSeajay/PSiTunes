@@ -30,7 +30,6 @@ function Get-FileMetadata {
         switch($Method){
             "FileAttributes" {
                 $FullName = (Resolve-Path -LiteralPath $Path).ToString()
-                Write-Debug $Fullname
         
                 $params = @{}
 
@@ -47,7 +46,7 @@ function Get-FileMetadata {
                 $FileMetadata = getDataFromFileAttributes @params
 
                 if($FileMetadata -and -not $Raw){
-                    $FileMetadata = ($FileMetadata | convertFromFileAttributes)
+                    $FileMetadata = ($FileMetadata -ne $null) | convertFromFileAttributes
                 }
 
                 break
@@ -56,35 +55,32 @@ function Get-FileMetadata {
             "FilePath" {
                 $FileMetadata = getDataFromFilePath -FullName $Path -RootPath $RootPath
                 if($FileMetadata -and -not $Raw){
-                    $FileMetadata = ($FileMetadata | convertFromFileAttributes)
+                    $FileMetadata = ($FileMetadata -ne $null) | convertFromFileAttributes
                 }
 
                 break
             }
 
             "TagLib" {
-                $FullName = if($RootPath){$RootPath} else {$Path}
-                Write-Debug "Get-FileMetadata: Processing $FullName"
-                
-                $FileMetadata = if(Test-Path -LiteralPath $FullName -PathType Container){
-                        Get-ChildItem -LiteralPath $FullName |
-                            Where-Object {$_.PSIsContainer -or $_.Extension -in ("mp3")} |
-                            Foreach-Object {
-                                if(Test-Path -LiteralPath $_.FullName -PathType Container){
-                                    Get-FileMetadata -Path $_.FullName -Method TagLib
-                                } else {
-                                    $FilePath = $_.FullName
-                                    getDataFromTagLib -Path $FilePath
-                                }
-                        }
-                    } else {
-                        $FilePath = $FullName
-                        getDataFromTagLib -Path $FilePath
-                    }
+                if($PSBoundParameters.Keys -contains "RootPath"){
+                    $FullName = Get-Item -LiteralPath $RootPath
+                } else {
+                    $FullName = Get-Item -LiteralPath $Path
+                }
 
-                if($FileMetadata -and -not $Raw){
-                    $FileMetadata = $FileMetadata -ne $null |
-                        Foreach-Object {$_ | convertFromTagLibProperties}
+                $FileMetadata = `
+                    if(Test-Path -LiteralPath $FullName -PathType Container){
+                        Get-ChildItem -LiteralPath $FullName | Foreach-Object {
+                            Get-FileMetadata -Path $_.FullName -Method TagLib -Raw
+                        }
+                    } elseif($FullName.Extension -in @(".mp3", ".m4a", ".m4p")) {
+                        getDataFromTagLib -Path $Fullname
+                    } else {
+                        $null
+                    }
+                
+                if(-not $Raw){
+                    $FileMetadata = ($FileMetadata -ne $null) | convertFromTagLibProperties
                 }
 
                 break
