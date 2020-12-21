@@ -21,7 +21,7 @@ $GLOBAL:iTunesRoot = "D:\iTunes\iTunes Media\Music\"
 
 ###################################################################################################
 # Start iTunes Application
-Start-iTunes
+$GLOBAL:iTunesApplication = Start-iTunes
 
 ###################################################################################################
 # Load the iTunes Library object
