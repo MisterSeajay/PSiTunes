@@ -46,14 +46,12 @@ Import-Module $PSiTunes -Force -Verbose:$false
 #region
 
 trap {
-    Write-Warning "Error trapped in: $(Get-PSCallStack | Out-String)"
-    # Write-Debug "Script variables are: $(Get-Variable -Scope Script | Out-String))"
-    foreach($VariableName in ("Object", "Target", "File")){
-        if((Get-Variable).where{$_.Name -eq $VariableName}){
-            Write-Debug ("$_`n" + (Get-Variable $_ -ValueOnly | Out-String))
-        }
-    }
-    Write-Error $_
+    Write-Warning "Error trapped"
+    Write-Debug (Get-PSCallStack |
+        Select-Object ScriptLineNumber, Position -Skip 1 |
+        Sort-Object -Descending |
+        Out-String)
+    Write-Error $_.Exception.Message.ToString()
     exit 1
 }
 
@@ -491,11 +489,17 @@ foreach($File in $FileData){
     ###########################################################################
     # Find & refine potential targets in iTunes database
 
+    <#
     $Target = $null
     do {
         $Search = generateSearchString -MetaData $File -Properties $Properties
         $SearchResults = Search-iTunesLibrary -Search $Search
-        $ExactMatch = matchSearchResultsExactly -MetaData $File -Target $SearchResults
+        
+        if($SearchResults){
+            $ExactMatch = matchSearchResultsExactly -MetaData $File -Target $SearchResults
+        } else {
+            $ExactMatch = $null
+        }
 
         if(@($ExactMatch).Count -eq 1){
             $Target = @($ExactMatch)
@@ -504,9 +508,22 @@ foreach($File in $FileData){
         } else {
             $Target = @()
         }
+
         $Properties[-1]=$null
         $Properties = $Properties -ne $null #Ignore PSScriptAnalyzer; this filters out nulls
     } while ($Properties -and $Target.Count -ne 1)
+    #>
+
+    $SearchParams = @{
+        Album = $File.Album
+        Artist = $File.Artist
+        Name = $File.Name
+        TrackNumber = $File.TrackNumber
+        MatchAll = $true
+        WhatIf = $false
+    }
+
+    $Target = @(Search-iTunesLibrary @SearchParams) -ne $null
 
     ###########################################################################
     # Work out what to do with the "source" file
@@ -514,10 +531,10 @@ foreach($File in $FileData){
     $obj = $File | Select-Object -Property Location,Status
 
     if($Target.Count -gt 1){
-        Write-Warning ("Multiple matches in iTunes: $Search")
+        Write-Warning ("Multiple matches in iTunes: {0} - {1} - {2}" -f $File.Album, $File.Artist, $File.Name)
         $obj.Status = "Multiple matches in iTunes"        
     } elseif($Target.Count -eq 1) {
-        if([string]::IsNullOrWhiteSpace($Target.Location) -or $Force){
+        if("Location" -notin $Target.PSObject.Properties.Name -or $Force){
             $obj.Status = moveFileToiTunes -File $File -Target ([ref]$Target[0])
         } elseif($Target.Grouping -match 're-?rip') {
             Write-Debug "Target track flagged for re-rip"
@@ -530,10 +547,10 @@ foreach($File in $FileData){
             $obj.Status = "Duplicate"
         }    
     } elseif($AddMissing){
-        Write-Verbose ("Adding new file to iTunes: {0} - {1} - {2}" -f $File.Album, $File.Artist, $File.Name)
+        Write-Verbose "Adding new file to iTunes"
         $obj.Status = moveFileToiTunes -File $File -Add -Reason "Add new file"
     } else {
-        Write-Warning ("Failed to match in iTunes: $Search")
+        Write-Warning "Failed to match in iTunes"
         $obj.Status = "Missing in iTunes"
     }
 
