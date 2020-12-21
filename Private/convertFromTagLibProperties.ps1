@@ -2,7 +2,7 @@ function convertFromTagLibProperties {
     [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeline)]
-        [ValidateNotNullOrEmpty]
+        [ValidateNotNullOrEmpty()]
         $InputObject
     )
 
@@ -30,7 +30,6 @@ function convertFromTagLibProperties {
             } -as [MusicFileInfo]
         } catch {
             Write-Warning "convertFromTagLibProperties: Failed to convert InputObject to [MusicFileInfo] type"
-            Write-Debug "convertFromTagLibProperties: $($InputObject.PSObject.Properties.Name | Out-String)"
             Write-Error $_.Exception.Message
         }
 
