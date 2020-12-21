@@ -27,11 +27,11 @@ function Get-FileMetadata {
     }
     
     PROCESS {
-        $FullName = (Resolve-Path -LiteralPath $Path).ToString()
-        Write-Debug $Fullname
-
         switch($Method){
             "FileAttributes" {
+                $FullName = (Resolve-Path -LiteralPath $Path).ToString()
+                Write-Debug $Fullname
+        
                 $params = @{}
 
                 if(Test-Path -LiteralPath $FullName -PathType Leaf) {
@@ -63,14 +63,19 @@ function Get-FileMetadata {
             }
 
             "TagLib" {
+                $FullName = if($RootPath){$RootPath} else {$Path}
+                Write-Debug "Get-FileMetadata: Processing $FullName"
+                
                 $FileMetadata = if(Test-Path -LiteralPath $FullName -PathType Container){
-                        Get-ChildItem -LiteralPath $FullName | Foreach-Object {
-                            if(Test-Path -LiteralPath $_.FullName -PathType Container){
-                                Get-FileMetadata $_.FullName -Method TagLib
-                            } else {
-                                $FilePath = $_.FullName
-                                getDataFromTagLib -Path $FilePath
-                            }
+                        Get-ChildItem -LiteralPath $FullName |
+                            Where-Object {$_.PSIsContainer -or $_.Extension -in ("mp3")} |
+                            Foreach-Object {
+                                if(Test-Path -LiteralPath $_.FullName -PathType Container){
+                                    Get-FileMetadata -Path $_.FullName -Method TagLib
+                                } else {
+                                    $FilePath = $_.FullName
+                                    getDataFromTagLib -Path $FilePath
+                                }
                         }
                     } else {
                         $FilePath = $FullName
@@ -78,7 +83,7 @@ function Get-FileMetadata {
                     }
 
                 if($FileMetadata -and -not $Raw){
-                    $FileMetadata = $FileMetadata |
+                    $FileMetadata = $FileMetadata -ne $null |
                         Foreach-Object {$_ | convertFromTagLibProperties}
                 }
 
