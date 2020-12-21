@@ -23,7 +23,7 @@ Class MusicFileInfo {
                 $this.$prop = $InputObject.$prop
             } catch {
                 Write-Warning "Failed to set $prop on new MusicFileInfo object"
-                Write-Debug ($InputObject | FL | Out-String)
+                Write-Debug ($InputObject | Format-List | Out-String)
                 Write-Error $_.Message.ToString()
             }
         }
