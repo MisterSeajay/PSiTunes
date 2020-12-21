@@ -1,5 +1,5 @@
 function Search-iTunesLibrary {
-    [CmdletBinding(SupportsShouldProcess)]
+    [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName="Library")]
     param(
         [Parameter(
             ParameterSetName="Library",
@@ -26,6 +26,20 @@ function Search-iTunesLibrary {
         [string]
         $Name = "",
         
+        [Parameter(
+            ParameterSetName="Track",
+            ValueFromPipelineByPropertyName)]
+        [int]
+        $TrackNumber,
+
+        [Parameter(ParameterSetName="Track")]
+        [switch]
+        $ExactMatch,
+
+        [Parameter(ParameterSetName="Track")]
+        [switch]
+        $MatchAll,
+        
         [Parameter()]
         [ITPlaylistSearchField]
         $SearchType = [ITPlaylistSearchField]::ITPlaylistSearchFieldAll,
@@ -35,41 +49,73 @@ function Search-iTunesLibrary {
         $iTunesLibrary = $(Get-iTunesLibrary)
     )
     
-    if($PsCmdlet.ParameterSetName -eq "Track"){
-        $Search = "$Artist $Album $Name"
+    $SearchString = if($PsCmdlet.ParameterSetName -eq "Track"){
+        @(  (cleanSearchString $Artist), 
+            (cleanSearchString $Album),
+            (cleanSearchString $Name)
+        ) -join " "
+    } else {
+        cleanSearchString $Search
     }
     
-    # Clean up search string
-    $SearchString = $Search
-    $SearchString = $SearchString -replace '[\[(][^\[)]+[\])]','' # Remove text in brackets
-    $SearchString = $SearchString -replace '[\W-[ ]]','' # Remove punctuation except for spaces
-    $SearchString = $SearchString -replace '\s{2,}',' '  # Remove unnecessarily wide spaces
-    $SearchString = $SearchString.trim()
+    if([string]::IsNullOrWhiteSpace($SearchString)){
+        Write-Warning "Search-iTunesLibrary: Search string is empty after cleaning"
+        Write-Debug "Search-iTunesLibrary: ""$Search"""
+        return $null
+    }
 
-    if($SearchString){
+    if($PsCmdlet.ShouldProcess($SearchString, "Search")){
         $SearchResults = @($iTunesLibrary.Search($SearchString, $SearchType))
     } else {
-        Write-Error "Search string is empty"
-        return $null
+        $SearchResults = @()
     }
     
     if(-not $SearchResults){
         Write-Debug "Search-iTunesLibrary: returned no results for $SearchString"
         return $null
-    #} else {
-    #    Write-Debug "Search-iTunesLibrary: returned $($SearchResults.Count) result(s)"
     }
 
-    # Create a list of tracks from the search results
-    $Tracks = @()
-    $SearchResults | Foreach-Object {$Tracks += $_}
-    
-    # Filter results if a "track" search was used
-    $Tracks = $Tracks | Where-Object {`
-        ($_.Artist -match $Artist) -and `
-        ($_.Album -match $Album) -and `
-        ($_.Name -match $Name)}
-      
-    # Return the list of tracks as an array
-    return $Tracks
+    if($PsCmdlet.ParameterSetName -eq "Track"){
+        if($ExactMatch){
+            $SearchResults = $SearchResults | Where-Object { `
+                ($Artist -in @($_.Artist, $_.AlbumArtist, "")) -and `
+                ($Album -in @($_.Album, "")) -and `
+                ($Name -in @($_.Name, ""))
+            }
+
+        } elseif($MatchAll){
+            foreach($Token in ((cleanSearchString $Artist) -split('\s+'))){
+                $SearchResults = $SearchResults |
+                    Where-Object {$_.Artist -match [regex]::Escape($Token)}
+            }
+
+            foreach($Token in ((cleanSearchString $Album) -split('\s+'))){
+                $SearchResults = $SearchResults |
+                    Where-Object {$_.Album -match [regex]::Escape($Token)}
+            }
+
+            foreach($Token in ((cleanSearchString $Name) -split('\s+'))){
+                $SearchResults = $SearchResults |
+                    Where-Object {$_.Name -match [regex]::Escape($Token)}
+            }
+
+        } else {
+            $Artist = cleanSearchString $Artist -IgnoreNonAlphaNumeric
+            $Album = cleanSearchString $Album -IgnoreNonAlphaNumeric
+            $Name = cleanSearchString $Name -IgnoreNonAlphaNumeric
+
+            $SearchResults = $SearchResults | Where-Object {`
+                ($_.Artist -match $Artist) -and `
+                ($_.Album -match $Album) -and `
+                ($_.Name -match $Name)
+            }
+        }
+
+        if($TrackNumber){
+            $SearchResults = $SearchResults |
+                Where-Object {$_.Tracknumber -eq $TrackNumber}        
+        }
+    }
+
+    return $SearchResults
 }
