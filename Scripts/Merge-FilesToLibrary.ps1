@@ -426,7 +426,7 @@ if($UseiTunesMedia){
     if($FolderLimit -gt 0){
         $Folders = $Folders | Select-Object -First $FolderLimit
     }
-    $MusicFileInfos = $Folders | Get-FileMetadata -RootPath $SourcePath -Method TagLib
+    $MusicFileInfos = $Folders | Get-FileMetadata -Method TagLib
 }
 
 $FileData = New-Object -TypeName System.Collections.ArrayList
