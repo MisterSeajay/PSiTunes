@@ -1,5 +1,5 @@
 function Get-FileMetadata {
-    [CmdletBinding(SupportsShouldProcess)]
+    [CmdletBinding(SupportsShouldProcess=$false)]
     [OutputType([MusicFileInfo[]])]
     param(
         [Parameter(Position=0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
@@ -7,7 +7,7 @@ function Get-FileMetadata {
         [string]
         $Path = (Get-Location),
 
-        [Parameter()]
+        [Parameter(Position=1)]
         [string]
         $RootPath,
 
@@ -24,6 +24,7 @@ function Get-FileMetadata {
     )
 
     BEGIN {
+        $FileMetadata = $null
     }
     
     PROCESS {
@@ -62,24 +63,29 @@ function Get-FileMetadata {
             }
 
             "TagLib" {
-                if($PSBoundParameters.Keys -contains "RootPath"){
-                    $FullName = Get-Item -LiteralPath $RootPath
-                } else {
-                    $FullName = Get-Item -LiteralPath $Path
-                }
+                $FullName = Get-Item -LiteralPath $Path
 
                 $FileMetadata = `
                     if(Test-Path -LiteralPath $FullName -PathType Container){
-                        Get-ChildItem -LiteralPath $FullName | Foreach-Object {
-                            Get-FileMetadata -Path $_.FullName -Method TagLib -Raw
+                        # Write-Verbose "Get-FileMetadata: Entering $Fullname"
+                        if($Recurse) {
+                            $ChildItems = Get-ChildItem -LiteralPath $FullName
+                        } else {
+                            $ChildItems = Get-ChildItem -LiteralPath $FullName -File
                         }
+
+                        foreach($Child in $ChildItems) {
+                            Get-FileMetadata -Path $Child.FullName -Method TagLib -Raw
+                        }
+                        # Write-Debug "Get-FileMetadata: Completing $Fullname"
+
                     } elseif($FullName.Extension -in @(".mp3", ".m4a", ".m4p")) {
                         getDataFromTagLib -Path $Fullname
                     } else {
                         $null
                     }
                 
-                if(-not $Raw){
+                if($FileMetadata -and -not $Raw){
                     $FileMetadata = ($FileMetadata -ne $null) | convertFromTagLibProperties
                 }
 
