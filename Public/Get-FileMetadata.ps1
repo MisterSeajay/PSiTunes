@@ -86,7 +86,7 @@ function Get-FileMetadata {
                     }
                 
                 if($FileMetadata -and -not $Raw){
-                    $FileMetadata = ($FileMetadata -ne $null) | convertFromTagLibProperties
+                    $FileMetadata = @($FileMetadata) -ne $null | convertFromTagLibProperties
                 }
 
                 break
