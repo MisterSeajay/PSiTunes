@@ -103,7 +103,8 @@ function getWindowsMediaFolders {
         $Subfolders+= (Resolve-Path -LiteralPath $Path).Path
 
         foreach($Folder in $Subfolders){
-            if(Get-ChildItem -LiteralPath $Folder -File){
+            if(Get-ChildItem -LiteralPath $Folder -File |
+                Where-Object{$_.Extension -in (".mp3", ".m4a", ".m4p")}){
                 Write-Output $Folder
             }
         }
