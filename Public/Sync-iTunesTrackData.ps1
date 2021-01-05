@@ -22,7 +22,7 @@ function Sync-iTunesTrackData {
                 Select-Object Artist,@{Label="ShortName";Expression={$_.Name.ToLower() -replace "\[.+\]",""}} |
                 Sort-Object Artist,ShortName | Get-Unique -AsString).Count -gt 1){
         Write-Warning "Name and Artist does not match for all tracks"
-        Write-Debug ($Tracks | Select Name,Artist -Unique | Out-String)
+        Write-Debug ($Tracks | Select-Object -Property Name,Artist -Unique | Out-String)
         return $null
     } else {
         Write-Verbose "$($PsCmdlet.ParameterSetName) data on $($Tracks.Count) tracks"
@@ -52,7 +52,10 @@ function Sync-iTunesTrackData {
         
     $PlayedCount = $MinPlayed
     $AddNoPlaylist = 0
-        
+    
+    $CombinedGroupings = $Tracks.Grouping -join ";"
+    $CombinedGroupings+= ";Sync" # tag for future re-syncs
+
     foreach($Track in ($Tracks | Sort-Object Compilation,Year,Album)){
 
         ###########################################################################################
@@ -63,9 +66,9 @@ function Sync-iTunesTrackData {
         }
             
         ###########################################################################################
-        # Add "Sync" tag to the Grouping field to enable future re-syncs
+        # Merge the grouping tags to each track
 
-        Set-iTunesTrackGrouping -Track $Track -Add "Sync"
+        Set-iTunesTrackGrouping -Track $Track -Add $CombinedGroupings
             
         ###########################################################################################
         # Ensure that only one version of this song is added to smart playlists
