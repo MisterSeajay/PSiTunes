@@ -20,10 +20,10 @@ function Set-iTunesTrackData {
 
     PROCESS {
         foreach($Track in $Tracks){
-            Write-Verbose "Updating $Attribute on $(formatiTunesTrackInfo -Track $Track)"
+            Write-Verbose "Set-iTunesTrackData: Updating $(formatiTunesTrackInfo -Track $Track)"
 
             if($PSCmdlet.ShouldProcess($Attribute,"Set attribute")){
-                Write-Debug "Set $Attribute to $Value [$($Value.GetType().FullName)]"
+                Write-Debug "Set-iTunesTrackData: $Attribute to $Value [$($Value.GetType().FullName)]"
                 $Track.$Attribute = $Value
             }
         }
