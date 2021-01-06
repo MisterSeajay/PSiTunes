@@ -23,7 +23,7 @@ function Sync-iTunesTrackData {
         Write-Warning "Sync-iTunesTrackData: Minimum 2 tracks needed for sync"
         return $null
     } elseif(-not $Force -and @($Tracks |
-                Select-Object Artist,@{Label="ShortName";Expression={$_.Name.ToLower() -replace "\[.+\]",""}} |
+                Select-Object Artist,@{Label="ShortName";Expression={($_.Name.ToLower() -replace "\[.+\]","").Trim()}} |
                 Sort-Object Artist,ShortName | Get-Unique -AsString).Count -gt 1){
         Write-Warning "Sync-iTunesTrackData: Name and Artist does not match for all tracks"
         Write-Debug ($Tracks | Select-Object -Property Name,Artist -Unique | Out-String)
