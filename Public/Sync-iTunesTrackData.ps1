@@ -34,9 +34,9 @@ function Sync-iTunesTrackData {
     
     # Gather all tags from each track
     $CombinedGroupings = $Tracks.Grouping -join ";"
-    # Strip out unwanted/reserved tags that we don't want to merge
-    $UnwantedTags = @("Female","NoPlaylist","Purchased","Re-rip","SP","Sync") -join "|"
-    $CombinedGroupings = $CombinedGroupings -replace ("\b($UnwantedTags)\b","")
+    # Strip out tags that we don't want to include in the merge
+    $UnwantedTagsRegex = "\b(B-Side|Female|NoPlaylist|Purchased|Re-rip|SP|Sync)\b"
+    $CombinedGroupings = $CombinedGroupings -replace ($UnwantedTagsRegex,"")
     # Clean up string
     $CombinedGroupings = $CombinedGroupings -replace (";{2,}",";")
     $CombinedGroupings = $CombinedGroupings.Trim(";")
@@ -56,12 +56,16 @@ function Sync-iTunesTrackData {
     }
 
     $MaxRating = [Int32]($Tracks | Measure-Object -Maximum -Property Rating).Maximum
-            
-    foreach($Track in ($Tracks | Sort-Object Compilation,Year,Album)){
+    
+    $SortedTracks = $Tracks |
+        Sort-Object @{e={$_.Grouping-match "rip"}; descending=$false}, Compilation, `
+            @{e="Bitrate";descending=$true}, Year, Album
+
+    foreach($Track in $SortedTracks){
 
         Write-Verbose "Sync-iTunesTrackData: Updating GROUPING for $(formatiTunesTrackInfo -Track $Track)"
 
-        ###########################################################################################
+        #######################################################################
         # Merge the grouping tags to each track
         #
         # If the AddNoPlaylist switch has been set (after the first run of this
