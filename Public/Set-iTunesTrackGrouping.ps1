@@ -14,7 +14,11 @@ function Set-iTunesTrackGrouping {
         [Parameter()]
         [ValidateNotNullOrEmpty()]
         [string]
-        $Remove
+        $Remove,
+
+        [Parameter()]
+        [switch]
+        $IncludeGenre
     )
 
     BEGIN {
@@ -47,12 +51,14 @@ function Set-iTunesTrackGrouping {
                 }
             }
             
-            # Copy genre into grouping tags
-            $GenreTags = ($Track.Genre).Split(" ")
-            foreach($GenreTag in $GenreTags){
-                if($GenreTag -notin $GroupingTags `
-                        -and -not [string]::IsNullOrWhiteSpace($GenreTag)){
-                    [void]$GroupingTags.Add($GenreTag)
+            if($IncludeGenre){
+                # Copy genre into grouping tags
+                $GenreTags = ($Track.Genre).Split(" ")
+                foreach($GenreTag in $GenreTags){
+                    if($GenreTag -notin $GroupingTags `
+                            -and -not [string]::IsNullOrWhiteSpace($GenreTag)){
+                        [void]$GroupingTags.Add($GenreTag)
+                    }
                 }
             }
 
