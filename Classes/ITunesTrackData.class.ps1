@@ -170,7 +170,8 @@ Class iTunesFileOrCDTrackInfo : iTunesTrackInfo {
 }
 
 Class iTunesTrackData : iTunesFileOrCDTrackInfo {
-    iTunesTrack($InputObject) {
+    # Constructor
+    iTunesTrackData($InputObject) {
         foreach($prop in $InputObject.PSObject.Properties.Name){
             try {
                 $this.$prop = $InputObject.$prop
@@ -179,6 +180,7 @@ Class iTunesTrackData : iTunesFileOrCDTrackInfo {
             }
         }
     }
+    
     [bool]Exists() {        # Does the file exist at the location specified?
         return ((Test-Path -LiteralPath $this.Location -ErrorAction "SilentlyContinue") -eq $true)
     }
