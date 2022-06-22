@@ -42,7 +42,7 @@ function Search-iTunesLibrary {
         
         [Parameter()]
         [ITPlaylistSearchField]
-        $SearchType = [ITPlaylistSearchField]::ITPlaylistSearchFieldAll,
+        $SearchType = [ITPlaylistSearchField]::ITPlaylistSearchFieldVisible,
         
         [Parameter()]
         [System.Object]
@@ -77,10 +77,17 @@ function Search-iTunesLibrary {
 
     if($PsCmdlet.ParameterSetName -eq "Track"){
         if($ExactMatch){
-            $SearchResults = $SearchResults | Where-Object { `
-                ($Artist -in @($_.Artist, $_.AlbumArtist, "")) -and `
-                ($Album -in @($_.Album, "")) -and `
-                ($Name -in @($_.Name, ""))
+            try {
+                $SearchResults = $SearchResults | Where-Object { `
+                    ($_.Genre -notin ("Podcast"))} | Where-Object { `
+                    ($Artist -in @($_.Artist, $_.AlbumArtist, "")) -and `
+                    ($Album -in @($_.Album, "")) -and `
+                    ($Name -in @($_.Name, ""))
+                }
+            }
+            catch {
+                Write-Debug ($SearchResults | Out-String)
+                throw
             }
 
         } elseif($MatchAll){
