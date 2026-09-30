@@ -3,6 +3,11 @@
 When a rule and existing code disagree, fix the code. Record any deliberate
 exception in README.md rather than quietly violating the rule.
 
+Read `TODO.md` at the start of a session. It holds the deferred work, the
+reasons for any deliberate non-action, and the known bugs that have not been
+fixed. Update it as items land, and add an entry the moment something is
+deferred rather than dropped.
+
 ## Documentation
 
 **Markdown should be linted with markdownlint-cli2** (npm package). The rules live
@@ -28,9 +33,9 @@ lives only in one person's shell history is not a rule.
 
 > **Not yet present in this repository.** There is no `.markdownlint.json` and no
 > `.githooks/` here yet, so the linter above has nothing to read and there is no
-> pre-commit hook to enable. Copy both from PSToolkit when you want the gate. Until
-> `.markdownlint.json` exists, lint with explicit flags or do not claim to have
-> linted.
+> pre-commit hook to enable. Both are to be copied from PSToolkit; the item is
+> tracked in `TODO.md`. Until `.markdownlint.json` exists, lint with explicit
+> flags or do not claim to have linted.
 
 ### The pre-commit hook
 
@@ -582,13 +587,21 @@ consequences shape how the code is written and why it is awkward to test:
   matches on shape, so a future private helper named `Verb-Noun` would be
   exported by accident. The private helpers are all camelCase today, so the
   wildcard happens to select the 23 public functions and nothing else.
-- **Paths are hardcoded to one machine.** `PSiTunes.psm1` sets
-  `$GLOBAL:iTunesRoot = "D:\iTunes\iTunes Media\Music\"` and
-  `$GLOBAL:iTunesMediaPath = "D:\iTunes\iTunes Media"`, and `Scripts/` repeats
-  `D:\iTunes\iTunes Media\Music\` and `D:\Music\Ripped`. The commented-out
-  `Get-iTunesMediaLocation` call on the last line of the `.psm1` suggests
-  replacing them was already the intent. This is why `Get-iTunesMediaLocation`
-  is public but unused. Do not add another hardcoded path.
+- **The media paths come from iTunes now.** The `.psm1` reads the
+  "Music Folder" key out of the library XML via `Get-iTunesMediaLocation`
+  instead of assuming `D:\`. If that lookup fails it warns and falls back to
+  `$FallbackMediaPath`, which is still the `D:\iTunes\iTunes Media` literal
+  the module was written against — that is the one place a drive letter is
+  still expected to be right. `Scripts/Merge-FilesToLibrary.ps1` has its own
+  fallback for the same reason, and `Scripts/Get-TracksWithNoFile.ps1` has
+  none: it errors rather than guessing. Both scripts import the module *after*
+  their parameters are bound, so they resolve the path after the import, and
+  both read the module's global through `$global:` into a differently named
+  variable, because their own parameter of the same name shadows it.
+- **`$SourcePath` in `Scripts/Merge-FilesToLibrary.ps1` is still a literal**
+  (`D:\Music\Ripped`). That one is a source directory rather than an iTunes
+  setting, so there is nothing in the library to derive it from. Change it on
+  the command line.
 - **Commands read the globals rather than declaring parameters.**
   `Set-iTunesTrackName` and `Set-iTunesFileLocations` read `$iTunesLibrary` from
   scope, and the latter reads `$global:iTunesLibrary` explicitly. This is the
@@ -602,11 +615,29 @@ consequences shape how the code is written and why it is awkward to test:
   has several sites, which inflates the number and is how an earlier count of
   "22 of 24" was wrong. The real figures are 23 public functions, all with
   `CmdletBinding`, 15 of them with `SupportsShouldProcess`.
-- **There is no comment-based help anywhere in `Public/`.** Zero `.SYNOPSIS`
-  blocks across all 23 exported functions, while 15 of them declare
-  `SupportsShouldProcess` and therefore present a `WhatIf` prompt that no help
-  text explains. Per 1.4 the help is the contract, and the Gallery will show
-  empty entries. This is the largest single gap against Section 1.
+- **Every public function has comment-based help.** Added in 7b4de12: all 23
+  have `.SYNOPSIS`, `.DESCRIPTION`, a `.PARAMETER` entry for every declared
+  parameter, at least one `.EXAMPLE`, and `.NOTES` where a caveat is worth
+  stating. There is no allow-list of undocumented parameters, because there are
+  none; keep it that way, so a new parameter without help is a visible gap
+  rather than a silent one.
+- **`Get-Help Search-iTunesLibrary` needs iTunes running.** Its `$SearchType`
+  parameter is typed `[ITPlaylistSearchField]`, an interop type that the iTunes
+  COM object registers at runtime, so on a machine without iTunes
+  `Get-Help` fails with "Unable to find type [ITPlaylistSearchField]" rather
+  than showing help. Parsing the file is unaffected. A `[ValidateSet]` on the
+  string values would remove the dependency at the cost of the type's
+  discoverability; not done, because it changes the parameter's contract.
+- **Two functions were outright broken and are now fixed** (509f92b).
+  `Set-iTunesTrackRating` compared and wrote `Genre` while referencing an
+  undeclared `$Genre`, so it could not set a rating at all; it now writes
+  `Rating` and passes `-Tracks` to `Set-iTunesTrackData`, which the call had
+  been omitting. `Get-iTunesLibraryGenres` read `$iTunes.LibraryPlaylist.Tracks`
+  where the parameter is `$iTunesLibrary`, and `$iTunes` is never defined, so
+  it returned only the hardcoded `"Compilations"`. Both threw under StrictMode.
+  The lesson worth keeping: under `Set-StrictMode -Version 2` an undeclared
+  variable is an error, so this class of bug is loud rather than silent — but
+  only if a command actually runs. Reading the code is what found these.
 - **`lib/TagLibSharp.dll` is a vendored binary** loaded by
   `RequiredAssemblies`, used by `Private/getDataFromTagLib.ps1` and
   `Private/convertFromTagLibProperties.ps1` for reading audio file tags. It is
