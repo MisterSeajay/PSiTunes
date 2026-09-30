@@ -1,4 +1,4 @@
-function formatiTunesTrackInfo {
+﻿function formatiTunesTrackInfo {
   [CmdletBinding()]
   param(
     [Parameter(

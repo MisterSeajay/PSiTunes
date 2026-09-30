@@ -1,4 +1,4 @@
-function getFileExtenstionFromKind{
+﻿function getFileExtenstionFromKind{
     [OutputType([string])]
     param(
         [Parameter(Mandatory)]$KindAsString

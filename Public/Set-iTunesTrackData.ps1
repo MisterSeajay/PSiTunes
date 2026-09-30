@@ -1,4 +1,4 @@
-function Set-iTunesTrackData {
+﻿function Set-iTunesTrackData {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(

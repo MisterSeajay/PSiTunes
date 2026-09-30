@@ -1,4 +1,4 @@
-function Find-iTunesDuplicatedTracks {
+﻿function Find-iTunesDuplicatedTracks {
     [CmdletBinding()]
     param(
         [Parameter(

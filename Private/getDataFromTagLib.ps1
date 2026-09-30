@@ -1,4 +1,4 @@
-function getDataFromTagLib {
+﻿function getDataFromTagLib {
     [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeline)]

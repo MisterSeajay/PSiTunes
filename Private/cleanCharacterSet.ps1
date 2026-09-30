@@ -1,4 +1,4 @@
-function cleanCharacterSet {
+﻿function cleanCharacterSet {
     [CmdletBinding()]
     [OutputType([string])]
     param(

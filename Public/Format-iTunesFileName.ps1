@@ -1,4 +1,4 @@
-function Format-iTunesFileName{
+﻿function Format-iTunesFileName{
     [CmdletBinding(DefaultParameterSetName="ByTrack")]
     [OutputType([string])]
     param(

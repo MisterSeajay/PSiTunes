@@ -1,4 +1,4 @@
-function Start-iTunes {
+﻿function Start-iTunes {
     [CmdletBinding(SupportsShouldProcess)]
     param()
 

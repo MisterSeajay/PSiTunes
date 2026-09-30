@@ -1,4 +1,4 @@
-function Set-iTunesTrackGrouping {
+﻿function Set-iTunesTrackGrouping {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(

@@ -1,4 +1,4 @@
-function Get-iTunesXmlLibrary {
+﻿function Get-iTunesXmlLibrary {
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([xml])]
     param(

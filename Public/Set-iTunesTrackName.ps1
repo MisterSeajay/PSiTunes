@@ -1,4 +1,4 @@
-function Set-iTunesTrackName {
+﻿function Set-iTunesTrackName {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(ParameterSetName="Normalize")]

@@ -1,4 +1,4 @@
-function Get-iTunesMediaLocation{
+﻿function Get-iTunesMediaLocation{
     [CmdletBinding()]
     [OutputType([string])]
     param(

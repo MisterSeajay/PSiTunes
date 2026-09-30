@@ -1,4 +1,4 @@
-function parsePlistDict{
+﻿function parsePlistDict{
     [CmdletBinding()]
     [OutputType([System.Collections.Hashtable])]
     param(

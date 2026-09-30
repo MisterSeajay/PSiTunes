@@ -1,4 +1,4 @@
-function getDataFromFileAttributes {
+﻿function getDataFromFileAttributes {
     param(
         [Parameter(ValueFromPipeline=$True)]
         [ValidateScript({Test-Path -LiteralPath $_})]

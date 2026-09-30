@@ -1,4 +1,4 @@
-function getDataFromFilePath {
+﻿function getDataFromFilePath {
     [CmdletBinding()]
     param(
         [Parameter(Position=0, ValueFromPipeline=$true)]

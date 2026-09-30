@@ -1,4 +1,4 @@
-function Set-iTunesTrackGenre {
+﻿function Set-iTunesTrackGenre {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(

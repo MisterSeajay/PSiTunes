@@ -1,4 +1,4 @@
-function cleanLocalUri {
+﻿function cleanLocalUri {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]

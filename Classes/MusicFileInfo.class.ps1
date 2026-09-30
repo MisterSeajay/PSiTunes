@@ -1,4 +1,4 @@
-Class MusicFileInfo {
+﻿Class MusicFileInfo {
     [string]$Name;          # Title of the track
     [string]$Album;         # Name of the album the track is a part of
     [string]$Artist;        # Name of the artist for this track, aka "contributing artist"

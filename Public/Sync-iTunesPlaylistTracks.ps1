@@ -1,4 +1,4 @@
-function Sync-iTunesPlaylistTracks {
+﻿function Sync-iTunesPlaylistTracks {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(

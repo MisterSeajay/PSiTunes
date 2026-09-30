@@ -1,4 +1,4 @@
-function Get-iTunesSelectedTracks {
+﻿function Get-iTunesSelectedTracks {
     if(-not $iTunesApplication){
         Write-Error "iTunes not loaded"
         return $false

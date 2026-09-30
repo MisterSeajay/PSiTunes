@@ -1,4 +1,4 @@
-<#
+﻿<#
 EXAMPLE USE OF TAGLIB
 =====================
 https://www.toddklindt.com/blog/Lists/Posts/Post.aspx?ID=468

@@ -1,4 +1,4 @@
-function Get-SimpleAttributes {
+﻿function Get-SimpleAttributes {
     [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeline)]

@@ -1,4 +1,4 @@
-function Get-FileMetadata {
+﻿function Get-FileMetadata {
     [CmdletBinding(SupportsShouldProcess=$false)]
     [OutputType([MusicFileInfo[]])]
     param(

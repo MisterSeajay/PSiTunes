@@ -1,4 +1,4 @@
-function Get-iTunesPlaylistTracks {
+﻿function Get-iTunesPlaylistTracks {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [System.Object]$Playlist

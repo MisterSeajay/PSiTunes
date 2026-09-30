@@ -1,4 +1,4 @@
-function convertFromTagLibProperties {
+﻿function convertFromTagLibProperties {
     [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeline)]

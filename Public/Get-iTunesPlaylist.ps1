@@ -1,4 +1,4 @@
-function Get-iTunesPlaylist {
+﻿function Get-iTunesPlaylist {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory=$true)]

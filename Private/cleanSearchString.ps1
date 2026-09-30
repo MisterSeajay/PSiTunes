@@ -1,4 +1,4 @@
-function cleanSearchString {
+﻿function cleanSearchString {
     [CmdletBinding(DefaultParameterSetName="IgnoreNonAlphaNumeric")]
     param(
         [Parameter(ValueFromPipeline, Position=0)]

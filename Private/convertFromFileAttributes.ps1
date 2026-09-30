@@ -1,4 +1,4 @@
-function convertFromFileAttributes {
+﻿function convertFromFileAttributes {
     [CmdletBinding()]
     [OutputType([MusicFileInfo])]
     param(

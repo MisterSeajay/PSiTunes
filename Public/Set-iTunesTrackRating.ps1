@@ -1,4 +1,4 @@
-function Set-iTunesTrackRating {
+﻿function Set-iTunesTrackRating {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(

@@ -1,4 +1,4 @@
-function Sync-iTunesTrackData {
+﻿function Sync-iTunesTrackData {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(

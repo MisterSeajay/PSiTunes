@@ -1,4 +1,4 @@
-function Search-iTunesLibrary {
+﻿function Search-iTunesLibrary {
     [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName="Library")]
     param(
         [Parameter(

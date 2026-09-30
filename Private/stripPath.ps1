@@ -1,4 +1,4 @@
-function stripPath {
+﻿function stripPath {
     [CmdletBinding()]
     [OutputType([string[]])]
     param(

@@ -1,4 +1,4 @@
-$cwd = Split-Path $MyInvocation.InvocationName -Parent
+﻿$cwd = Split-Path $MyInvocation.InvocationName -Parent
 $PSiTunes = Resolve-Path -Path (Join-Path $cwd "../PSiTunes.psd1")
 Import-Module $PSiTunes -Force -Verbose:$false
 

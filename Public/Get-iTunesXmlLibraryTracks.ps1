@@ -1,4 +1,4 @@
-function Get-iTunesXmlLibraryTracks {
+﻿function Get-iTunesXmlLibraryTracks {
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(

@@ -1,4 +1,4 @@
-function Get-iTunesLibraryGenres {
+﻿function Get-iTunesLibraryGenres {
   [CmdletBinding(SupportsShouldProcess)]
   param(
     [System.Object]$iTunesLibrary = $(Get-iTunesLibrary)

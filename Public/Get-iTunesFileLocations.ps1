@@ -1,4 +1,4 @@
-
+﻿
 function Get-iTunesFileLocations {
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([psobject])]
