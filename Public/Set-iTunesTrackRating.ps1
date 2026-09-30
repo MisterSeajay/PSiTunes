@@ -13,7 +13,7 @@ function Set-iTunesTrackRating {
         [int]
         $Rating
     )
-    
+
     # Correct "user star" values 1-5 to the range 20-100
     if($Rating -lt 20){
         $Rating = $Rating * 20

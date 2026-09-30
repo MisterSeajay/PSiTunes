@@ -24,10 +24,10 @@ function formatiTunesTrackInfo {
     foreach($Track in $Tracks){
       if($ShowTrackDatabaseId){
         $FormattedTrackInfo = "[{0}] - " -f $Track.TrackDatabaseId
-      } 
-      
+      }
+
       $FormattedTrackInfo+= "{0} [{1}]" -f $Track.Artist,$Track.Name
-      
+
       if($ShowAlbum){
         $FormattedTrackInfo+= " {0}" -f $Track.Album
       }

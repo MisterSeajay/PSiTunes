@@ -26,9 +26,9 @@ function getDataFromFileAttributes {
             $Glob = Split-Path $Path -Leaf
             $Path = Split-Path $Path -Parent
         }
-       
+
         $Folder = $Shell.Namespace($Path)
-      
+
         $Items = $Folder.Items()
         $ItemTotal = $Folder.Items().Count
         $ItemCount = 0
@@ -40,7 +40,7 @@ function getDataFromFileAttributes {
                 ParentId = $Depth - 1
                 Activity = "getDataFromFileAttributes: $($Folder.Title)"
                 CurrentOperation = $Item.Name
-                PercentComplete = ([math]::Floor(100 * ($ItemCount/$ItemTotal))) 
+                PercentComplete = ([math]::Floor(100 * ($ItemCount/$ItemTotal)))
             }
             Write-Progress @ProgressParams
 

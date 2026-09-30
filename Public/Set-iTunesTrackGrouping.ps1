@@ -23,7 +23,7 @@ function Set-iTunesTrackGrouping {
 
     BEGIN {
     }
-    
+
     PROCESS {
         foreach($Track in $Tracks){
             if($Add){
@@ -33,16 +33,16 @@ function Set-iTunesTrackGrouping {
             if($Remove){
                 Write-Debug "Set-iTunesTrackGrouping: Removing: $Remove"
             }
-            
+
             # Copy existing grouping tags into new ArrayList
-            $GroupingTags = New-Object -TypeName System.Collections.ArrayList        
+            $GroupingTags = New-Object -TypeName System.Collections.ArrayList
             foreach($GroupingTag in $Track.Grouping.Split(";")){
                 if($GroupingTag -ne $Remove `
                         -and -not [string]::IsNullOrWhiteSpace($GroupingTag)){
                     [void]$GroupingTags.Add($GroupingTag)
                 }
             }
-            
+
             # Add new tags to grouping tags
             foreach($GroupingTag in $Add.Split(";")){
                 if($GroupingTag -notin $GroupingTags `
@@ -50,7 +50,7 @@ function Set-iTunesTrackGrouping {
                     [void]$GroupingTags.Add($GroupingTag)
                 }
             }
-            
+
             if($IncludeGenre){
                 # Copy genre into grouping tags
                 $GenreTags = ($Track.Genre).Split(" ")
@@ -73,7 +73,7 @@ function Set-iTunesTrackGrouping {
             }
         }
     }
-    
+
     END{
     }
 }

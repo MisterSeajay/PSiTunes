@@ -26,12 +26,12 @@ function Get-FileMetadata {
     BEGIN {
         $FileMetadata = $null
     }
-    
+
     PROCESS {
         switch($Method){
             "FileAttributes" {
                 $FullName = (Resolve-Path -LiteralPath $Path).ToString()
-        
+
                 $params = @{}
 
                 if(Test-Path -LiteralPath $FullName -PathType Leaf) {
@@ -43,7 +43,7 @@ function Get-FileMetadata {
                 } else {
                     $params.Path = $Fullname
                 }
-        
+
                 $FileMetadata = getDataFromFileAttributes @params
 
                 if($FileMetadata -and -not $Raw){
@@ -52,7 +52,7 @@ function Get-FileMetadata {
 
                 break
             }
-            
+
             "FilePath" {
                 $FileMetadata = getDataFromFilePath -FullName $Path -RootPath $RootPath
                 if($FileMetadata -and -not $Raw){
@@ -84,7 +84,7 @@ function Get-FileMetadata {
                     } else {
                         $null
                     }
-                
+
                 if($FileMetadata -and -not $Raw){
                     $FileMetadata = @($FileMetadata) -ne $null | convertFromTagLibProperties
                 }
@@ -92,7 +92,7 @@ function Get-FileMetadata {
                 break
             }
         }
-        
+
         Write-Output $FileMetadata
     }
 

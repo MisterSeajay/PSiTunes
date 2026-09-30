@@ -18,7 +18,7 @@ function Sync-iTunesTrackData {
         [switch]
         $Force
     )
-    
+
     if((-not $Tracks) -or ($Tracks.Count -lt 2)){
         Write-Warning "Sync-iTunesTrackData: Minimum 2 tracks needed for sync"
         return $null
@@ -31,7 +31,7 @@ function Sync-iTunesTrackData {
     } else {
         Write-Debug "Sync-iTunesTrackData: $($Tracks.Count) tracks"
     }
-    
+
     # Gather all tags from each track
     $CombinedGroupings = $Tracks.Grouping -join ";"
     # Strip out tags that we don't want to include in the merge
@@ -42,7 +42,7 @@ function Sync-iTunesTrackData {
     $CombinedGroupings = $CombinedGroupings.Trim(";")
 
     $AddNoPlaylist = 0
-    
+
     if($FirstSync){
         $PlayedCount = [Int32]($Tracks | Measure-Object -Property PlayedCount -Sum).Sum
     } else {
@@ -56,7 +56,7 @@ function Sync-iTunesTrackData {
     }
 
     $MaxRating = [Int32]($Tracks | Measure-Object -Maximum -Property Rating).Maximum
-    
+
     $SortedTracks = $Tracks |
         Sort-Object @{e={$_.Grouping-match "rip"}; descending=$false}, Compilation, `
             @{e="Bitrate";descending=$true}, Year, Album
@@ -75,13 +75,13 @@ function Sync-iTunesTrackData {
         # After the first run through the list of tracks we set this flag to
         # ensure the rest of the list get the "NoPlaylist" tag added in their
         # grouping field.
-            
+
         if($AddNoPlaylist){
             Set-iTunesTrackGrouping -Track $Track -Add "$CombinedGroupings;NoPlaylist;Sync"
         } else {
             Set-iTunesTrackGrouping -Track $Track -Add "$CombinedGroupings;Sync" -Remove "NoPlaylist"
         }
-            
+
         $AddNoPlaylist = 1
 
         #######################################################################

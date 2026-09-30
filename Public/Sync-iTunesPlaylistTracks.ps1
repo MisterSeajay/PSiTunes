@@ -9,20 +9,20 @@ function Sync-iTunesPlaylistTracks {
         [string]
         $Playlist = "Sync (All)"
     )
-    
+
     $SyncTracks = (Get-iTunesPlaylist -Name $Playlist -ExactMatch).Tracks
 
     Write-Debug "$($SyncTracks.Count) track to synchronize from $Playlist"
 
     # Make a summary list of each distinct Artist and Track Name combination
     $SyncSummary = $SyncTracks | Select-Object Artist,Name | Sort-Object Artist,Name | Get-Unique -AsString
-    
+
     Write-Debug "$($SyncSummary.Count) distinct Artist-Song combinations"
 
     foreach($Track in $SyncSummary){
         # Get the tracks matching this "item" in the SyncSummary (Artist and Track Name combination)
         $Tracks = $SyncTracks | ?{($_.Name -eq $Track.Name) -and ($_.Artist -eq $Track.Artist)}
-        
+
         # Check whether we need to synchronize this Artist-Song combination
         $PlayedCount = $Tracks.PlayedCount | Measure-Object -Maximum -Minimum
 

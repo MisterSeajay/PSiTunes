@@ -19,7 +19,7 @@ enum ITPlaylistRepeatMode {
 
 enum ITPlaylistSearchField {
     ITPlaylistSearchFieldAll = 0        # Search all fields of each track.
-    ITPlaylistSearchFieldVisible        # Search {name, artist, album, composer} PLUS the fields with columns that are currently visible in the playlist. 
+    ITPlaylistSearchFieldVisible        # Search {name, artist, album, composer} PLUS the fields with columns that are currently visible in the playlist.
     ITPlaylistSearchFieldArtists        # Search only the artist field of each track (IITTrack::Artist).
     ITPlaylistSearchFieldAlbums         # Search only the album field of each track (IITTrack::Album).
     ITPlaylistSearchFieldComposers      # Search only the composer field of each track (IITTrack::Composer).
@@ -28,7 +28,7 @@ enum ITPlaylistSearchField {
 
 enum ITRatingKind {
     ITRatingKindUser = 0                # User-specified rating.
-    ITRatingKindComputed                # iTunes-computed rating. 
+    ITRatingKindComputed                # iTunes-computed rating.
 }
 
 enum ITSourceKind {
@@ -55,7 +55,7 @@ enum ITVideoKind {
     ITVideoKindNone = 0                 # Not a video track, or unknown video track kind.
     ITVideoKindMovie                    # Movie video track.
     ITVideoKindMusicVideo               # Music video track.
-    ITVideoKindTVShow                   # TV show video track. 
+    ITVideoKindTVShow                   # TV show video track.
 }
 
 #endregion
@@ -180,7 +180,7 @@ Class iTunesTrackData : iTunesFileOrCDTrackInfo {
             }
         }
     }
-    
+
     [bool]Exists() {        # Does the file exist at the location specified?
         return ((Test-Path -LiteralPath $this.Location -ErrorAction "SilentlyContinue") -eq $true)
     }

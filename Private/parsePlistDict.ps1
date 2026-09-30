@@ -2,7 +2,7 @@ function parsePlistDict{
     [CmdletBinding()]
     [OutputType([System.Collections.Hashtable])]
     param(
-        [Parameter(ValueFromPipeline)]    
+        [Parameter(ValueFromPipeline)]
         [System.Xml.XmlElement]$dict
     )
 
@@ -16,6 +16,6 @@ function parsePlistDict{
             $ht[$key.InnerText] = $key.NextSibling.InnerText
         }
     }
-    
+
     return $ht
 }

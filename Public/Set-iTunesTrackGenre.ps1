@@ -13,7 +13,7 @@ function Set-iTunesTrackGenre {
         [string]
         $Genre
     )
-    
+
     foreach($Track in $Tracks){
         # Run a case-sensitive match to see if we need to change anything, as we don't want to waste
         # time updating names that don't need to change.

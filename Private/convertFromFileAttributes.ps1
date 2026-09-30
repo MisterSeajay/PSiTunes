@@ -30,7 +30,7 @@ function convertFromFileAttributes {
         )
     }
 
-    PROCESS {       
+    PROCESS {
         $InputObject = $InputObject | Select-Object $AllowedAttributes
 
         $Compilation = ($InputObject.Compilation, ($InputObject.FullName -match "(compilation|various artist)")) | Select-Object -First 1
@@ -62,7 +62,7 @@ function convertFromFileAttributes {
             Location = [string]$InputObject.FullName
             BitRate = [int]($InputObject."Bit rate" -replace ('\D',''))
         }
-        
+
         try {
             $MusicFileInfo = $CleanedData -as [MusicFileInfo]
         } catch {

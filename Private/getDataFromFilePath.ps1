@@ -9,7 +9,7 @@ function getDataFromFilePath {
         [string]
         $RootPath = (Get-Location)
     )
-    
+
     BEGIN {}
 
     PROCESS {

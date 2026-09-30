@@ -58,7 +58,7 @@ function Format-iTunesFileName{
         if([string]::IsNullOrWhiteSpace($FileExtension)){
             throw("No file extension for {0} - {1}" -f $TrackArtist, $TrackName)
         }
-        
+
         # Replace illegal file characters with an underscore
         $TrackName = ($TrackName -replace "[<>:""/\\|?*]", "_")
 

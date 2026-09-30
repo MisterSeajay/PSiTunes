@@ -2,6 +2,7 @@
 param(
     [Parameter(ValueFromPipeline)]$Tracks,
     [Parameter()][string]$Album,
+    [Parameter()][string]$PathSearch,
     [Parameter()][string]$RootPath = $iTunesRoot,
     [Parameter()][switch]$ExactMatch = $false,
     [Parameter()][switch]$SkipErrors = $false
@@ -18,24 +19,25 @@ function cleanIllegalFileCharacters {
         [Parameter(Mandatory, ParameterSetName="File", Position=0)][string]$File,
         [Parameter()][string]$Replace = "_"
     )
+    $IllegalCharacters = "[<>:""/\\|?*]"
 
-    if($Replace -match "[<>:""/\\|?*]"){
-        throw("Illegal replacement character for file name")
+    if($Replace -match $IllegalCharacters) {
+        throw("cleanIllegalFileCharacters: Illegal replacement character for file name")
     }
 
-    switch($PSCmdlet.ParameterSetName){
+    switch($PSCmdlet.ParameterSetName) {
         "File" {
-            return ($File -replace "[<>:""/\\|?*]", $Replace)
+            return ($File -replace $IllegalCharacters, $Replace)
         }
 
-        "Path" { 
+        "Path" {
             $PathElements = $Path -split("\\")
             $Cleaned = @()
-            foreach($Element in $PathElements){
-                if($Element -match("^\w:$")){
+            foreach($Element in $PathElements) {
+                if($Element -match("^\w:$")) {
                     $Cleaned += $Element
                 } else {
-                    $Cleaned += $Element -replace ("[<>:""/\\|?*]", $Replace)
+                    $Cleaned += $Element -replace ($IllegalCharacters, $Replace)
                 }
             }
             return ($Cleaned -join ("\") -replace ("\\+", "\"))
@@ -58,6 +60,7 @@ function findMissingTrackFile {
     $SearchStrategies += "{0:00} -* {1}" -f $Track.TrackNumber, $SearchName
     $SearchStrategies += "{0:00} * {1}" -f $Track.TrackNumber, $SearchName
     $SearchStrategies += "{0:00} {1}" -f $Track.TrackNumber, $SearchName
+    $SearchStrategies += "?? {0}" -f $SearchName
     $SearchStrategies += $SearchName -replace '[(\[][^()\[\]]+([)\]]|$)', '*'
     #$SearchStrategies += $SearchName -replace ':', '-' -replace '\.', '_'
     #$SearchStrategies += $SearchName -replace '''', '_'
@@ -67,7 +70,7 @@ function findMissingTrackFile {
     #$SearchStrategies += $SearchName + ".m4p"
     $SearchStrategies = $SearchStrategies | Select-Object -Unique
 
-    foreach($Strategy in $SearchStrategies){
+    foreach($Strategy in $SearchStrategies) {
         # Shorten track names, 24 characters looks about right?
         try {
             $ShortStrategy = $Strategy.Substring(0, 24)
@@ -78,31 +81,33 @@ function findMissingTrackFile {
         finally {
             $Strategy = $ShortStrategy.trim(" *") -replace("\*+", "*") -replace("\s+\*+", " *")
         }
-        
+
         # Find ALL possible files under the root path matching the track and album name
         $MissingTrackFile = Get-ChildItem -Path $RootPath -Recurse -File "*$Strategy*" |
-            Where-Object {($_.Directory | Split-Path -Leaf) -match ($Track.Album -replace "[<>:""/\\|?*.'\[\]]", ".")}
+            Where-Object {($_.Directory | Split-Path -Leaf) -match ([regex]::Escape($Track.Album))}
 
         # Write-Debug "$($MissingTrackFile.Count) hits for: ""*$Strategy*"" in $([regex]::Escape($Track.Album))"
 
         # If more than one found, filter for those also matching the track number as well
-        if($MissingTrackFile.Count -gt 1){
+        if($MissingTrackFile.Count -gt 1) {
             $MissingTrackFile = $MissingTrackFile |
                 Where-Object {$_.Name -match [regex]::Escape($Track.TrackNumber)}
         }
 
         if($MissingTrackFile.Count -eq 1) {
             return $MissingTrackFile.FullName
-        }        
+        }
     }
 
-    if(-not $script:SkipErrors){
+    if($script:SkipErrors) {
+        Write-Warning "Found $($MissingTrackFile.Count) files matching $($SearchName)"
+    } else {
         Write-Debug "Searching '$RootPath' for:`n$($SearchStrategies | Out-String)"
+        Write-Error "Found $($MissingTrackFile.Count) files matching $($SearchName)"
     }
-    Write-Error "Found $($MissingTrackFile.Count) files matching $($SearchName)"
 }
 
-function moveiTunesFile{
+function moveiTunesFile {
     [CmdletBinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)]$Track,
@@ -110,16 +115,32 @@ function moveiTunesFile{
         [Parameter(Mandatory)][string]$DesiredPath
     )
 
-    $DesiredParent = cleanIllegalFileCharacters (Split-Path -Parent $DesiredPath).trim("\")
+    if($DesiredPath -ne (cleanIllegalFileCharacters $DesiredPath)) {
+        throw("moveiTunesFile: DesiredPath must not contain illegal characters")
+    }
 
-    if(-not (Test-Path $DesiredParent)){
+    $DesiredParent = (Split-Path -Parent $DesiredPath).trim("\")
+
+    if(-not (Test-Path $DesiredParent)) {
         New-Item -ItemType Directory -Path (Split-Path $DesiredParent -Parent) -Name (Split-Path $DesiredParent -Leaf) -Force | Out-Null
     }
 
-    Move-Item -LiteralPath $CurrentPath $DesiredPath
+    # Write-Debug "moveiTunesFile: Updating`n`t$CurrentPath to`n`t$DesiredPath"
 
-    if($PSCmdlet.ShouldProcess("$DesiredPath", "Update Track location")){
+    if($PSCmdlet.ShouldProcess("$CurrentPath", "Move-Item")) {
+        Move-Item -LiteralPath $CurrentPath -Destination $DesiredPath
+    } else {
+        # Stop here in ShouldProcess mode...
+        return
+    }
+
+    if(Test-Path -LiteralPath $DesiredPath) {
+        # Move successful; update Track details
         $Track.Location = $DesiredPath
+        # Write-Debug "moveiTunesFile: Track Location updated to $($Track.Location)"
+    } else {
+        Write-Error "File missing at expected location: '$DesiredPath'"
+        throw("moveiTunesFile: Failed to move file")
     }
 }
 
@@ -144,64 +165,80 @@ function processAlbum {
         $AlbumTracks = $Album.Group
         $DiscStart = [int]($AlbumTracks | Measure-Object -Minimum DiscNumber | Select-Object -ExpandProperty Minimum)
         $DiscCount = [int]($AlbumTracks | Measure-Object -Maximum DiscNumber | Select-Object -ExpandProperty Maximum)
-        
-        Write-Host "processAlbum: Processing $($Album.Name)"
-        
-        foreach($Disc in ($DiscStart..$DiscCount)){
+
+        Write-Verbose "processAlbum: Processing $($Album.Name)"
+
+        foreach($Disc in ($DiscStart..$DiscCount)) {
             $DiscTracks = $AlbumTracks | Where-Object{$_.DiscNumber -eq $Disc} | Sort-Object TrackNumber
-            foreach($Track in $DiscTracks){
-                Write-Verbose "processAlbum: Processing Disc $Disc of $DiscCount`: '$($Track.Name)'"
+            foreach($Track in $DiscTracks) {
+                $CurrentPath = $Track.Location
 
-                $CurrentPath = $Track.location
-
-                if([string]::IsNullOrWhiteSpace($CurrentPath) -or `
-                    -not (Test-Path -LiteralPath $CurrentPath -ErrorAction SilentlyContinue)){
-                        $CurrentPath = $null
+                if([string]::IsNullOrWhiteSpace($CurrentPath)) {
+                    $CurrentPath = $null
+                } elseif(-not (Test-Path -LiteralPath $CurrentPath)) {
+                    $CurrentPath = $null
+                } else {
+                    # Write-Debug "processAlbum: File found:`n`t'$CurrentPath'"
                 }
 
                 $DesiredPath = `
-                    if($Track.Compilation){
+                    if($Track.Album -match "^Various \([\w ]+\)$") {
+                        $UsualName = Format-iTunesFileName -Track $Track -DiscCount 0
+                        $NoTrackNumber = $UsualName -replace '^\d+[ -]+', ''
+                        ($RootPath, "Compilations", $Track.Album, $NoTrackNumber) -join("\")
+                    } elseif($Track.Compilation) {
                         ($RootPath, "Compilations", $Track.Album, (Format-iTunesFileName -Track $Track -DiscCount $DiscCount)) -join("\")
                     } else {
                         ($RootPath, $Track.AlbumArtist, $Track.Album, (Format-iTunesFileName -Track $Track -DiscCount $DiscCount)) -join("\")
                     }
-                
+
                 $DesiredPath = cleanIllegalFileCharacters -Path $DesiredPath
 
-                if($DesiredPath -ne $CurrentPath){
+                if($DesiredPath -ne $CurrentPath) {
                     try {
-                        if(-not ($CurrentPath -or (Test-Path -LiteralPath $DesiredPath))){
-                            $Action = "Search for file; move it to desired location & update track"
-                            $CurrentPath = findMissingTrackFile -Track $Track -Root $RootPath
-                            if($CurrentPath){
-                                moveiTunesFile $Track $CurrentPath $DesiredPath
+                        if(-not $CurrentPath) {
+                            if(Test-Path -LiteralPath $DesiredPath) {
+                                # File location is missing but a file exists at the desired location
+                                $Action = "Update location; existing file is missing or unknown"
+                                if($PSCmdlet.ShouldProcess("$DesiredPath", "Update Track location")) {
+                                    $Track.Location = $DesiredPath
+                                }
                             } else {
-                                throw("Failed to find unique file for $($Track.Name)")
+                                # Neither CurrentPath or DesiredPath exist; try searching for the file
+                                $Action = "Search for file; move it to desired location & update track"
+                                $FoundPath = findMissingTrackFile -Track $Track -Root $RootPath
+                                if($FoundPath) {
+                                    moveiTunesFile $Track $FoundPath $DesiredPath
+                                } else {
+                                    throw("Failed to find unique file for $($Track.Name)")
+                                }
                             }
-                        } elseif(-not $CurrentPath) {
-                            $Action = "Update location; existing file is missing or unknown"
-                            if($PSCmdlet.ShouldProcess("$DesiredPath", "Update Track location")){
-                                $Track.Location = $DesiredPath
-                            }                    
-                        } elseif(-not (Test-Path -LiteralPath $DesiredPath)){
-                            $Action = "Move file; no file exists at the expected location"
+                        } elseif(-not (Test-Path -LiteralPath $DesiredPath)) {
+                            # File exists and can be moved to the new location
+                            $Action = "Move file; no file exists at the desired location"
+                            # Write-Debug "processAlbum: $Action"
                             moveiTunesFile $Track $CurrentPath $DesiredPath
-                        } elseif($CurrentPath -match "C:.Users.cjj1977.Music") {
+                        } elseif($CurrentPath -notlike "$RootPath*") {
+                            # File path uses legacy location; refresh to new base path
                             $Action = "Refresh location to match new base path"
-                            if($PSCmdlet.ShouldProcess("$($Track.Album) - $($Track.Name)", "Update Track location")){
+                            # Write-Debug "processAlbum: $Action"
+                            if($PSCmdlet.ShouldProcess("$DesiredPath", "Update Track location")) {
                                 $Track.Location = $DesiredPath
                             } else {
                                 Write-Debug "FILE: $DesiredPath"
                             }
-                        } elseif(Test-Path -LiteralPath $DesiredPath){
+                        } elseif(Test-Path -LiteralPath $DesiredPath) {
                             # Do nothing; a file is already at the desired location
+                            # $Action = "Do nothing"
+                            Write-Debug "processAlbum: $Action"
                         }
                     }
                     catch {
+                        Write-Debug "ATTEMPTED TO: $Action"
                         Write-Debug "CURRENT PATH: $CurrentPath"
                         Write-Debug "DESIRED PATH: $DesiredPath"
-                        Write-Warning "ATTEMPTED: $Action"
-                        if(-not $SkipErrors){
+                        if(-not $SkipErrors) {
+                            Write-Output $Track
                             throw
                         } else {
                             Write-Warning $_.Exception.Message.ToString()
@@ -219,18 +256,38 @@ function processAlbum {
 #endregion
 ###############################################################################
 
-Import-Module ../PSiTunes.psd1 -Force -Verbose:$False
+# Find the module relative to the script's location.
+$ModulePath = Join-Path $PSScriptRoot '..\PSiTunes.psd1' | Resolve-Path -ErrorAction SilentlyContinue
+if ($ModulePath) {
+    if (Get-Module -Name PSiTunes) {
+        # Module is already loaded, so force a reload to pick up any changes.
+        Import-Module $ModulePath -Force -Verbose:$False
+    } else {
+        # Module is not loaded, so a standard import is sufficient.
+        Import-Module $ModulePath -Verbose:$False
+    }
+} else {
+    Write-Error "Could not find the PSiTunes module. Please ensure 'Set-iTunesFileLocations.ps1' is in a 'Scripts' subfolder of the PSiTunes module."
+    exit 1
+}
 
 $ErrorActionPreference = "Stop"
 
-if($Tracks){
+if($Tracks) {
     $AllAlbums = $Tracks | Group-Object AlbumArtist, Album
-} elseif($Album){
+} elseif($Album) {
+    Write-Verbose "Searching the iTunes library..."
     $AllTracks = Search-iTunesLibrary -Album $Album -ExactMatch
-    $AllAlbums = $AllTracks | Group-Object AlbumArtist, Album
+} elseif($PathSearch) {
+    Write-Verbose "Filtering the iTunes library by Location..."
+    $AllTracks = $global:iTunesLibrary.Tracks | Where-Object { $_.Location -match [regex]::Escape($PathSearch) }
 } else {
-    Write-Verbose "Reading the iTunes library"
-    $AllTracks = $iTunesLibrary.Tracks
+    Write-Verbose "Filtering the iTunes library by Media Kind..."
+    $AllTracks = $global:iTunesLibrary.Tracks | Where-Object { $_.Kind -eq 1 } # ITTrackKindFile
+}
+
+if($AllTracks) {
+    Write-Debug "Found $($AllTracks.Count) tracks"
     Write-Warning "Grouping all tracks by AlbumArtist, Album. This can take a while..."
     $AllAlbums = $AllTracks | Group-Object AlbumArtist, Album
 }

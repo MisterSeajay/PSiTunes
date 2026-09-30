@@ -93,7 +93,7 @@ function getWindowsMediaFolders {
             "Playlists"
         ) -join ("|")
     }
-    
+
     PROCESS {
         $Path = Resolve-Path -LiteralPath $Path
         $Subfolders = @(Get-ChildItem -LiteralPath $Path.ToString() -Directory -Recurse |
@@ -163,7 +163,7 @@ function removeInvalidFileNameChars {
         [string]
         $String
     )
-  
+
     $InvalidFileNameChars = [System.IO.Path]::GetInvalidFileNameChars() -join ''
     $InvalidFileNameChars+= ":;."
     $InvalidFileNameRegex = "[{0}]" -f [RegEx]::Escape($InvalidFileNameChars)
@@ -274,7 +274,7 @@ function refineSearchResults {
             -and (cleanTextForRefining $_.Name) -match $Name `
             -and $_.TrackNumber -eq $MetaData.TrackNumber}
     }
-    
+
     END {}
 }
 
@@ -297,7 +297,7 @@ function matchSearchResultsExactly{
             -and ($_.Name) -eq $Metadata.Name `
             -and $_.TrackNumber -eq $MetaData.TrackNumber}
     }
-    
+
     END {}
 
 }
@@ -313,7 +313,7 @@ function moveFileToiTunes {
         [Parameter(Mandatory,ParameterSetName="Update")]
         [ValidateNotNullOrEmpty()]
         [ref]$Target,
-        
+
         [Parameter(ParameterSetName="Add")]
         [switch]
         $AddNew,
@@ -338,7 +338,7 @@ function moveFileToiTunes {
     }
 
     $Status = $Reason
-    
+
     if($PSCmdlet.ShouldProcess($File.Location,"Move-Item")){
         Write-Debug "moveFileToiTunes: Copying source file to: $TargetPath"
 
@@ -349,7 +349,7 @@ function moveFileToiTunes {
             return "Failed to copy file"
         }
     }
-    
+
     if($AddNew){
         # We don't need to update an existing track
     } elseif($PSCmdlet.ShouldProcess($TargetPath,"Update iTunes Location")){
@@ -358,7 +358,7 @@ function moveFileToiTunes {
             Write-Error "$TargetPath missing"
             return "Failed to copy file"
         }
-        
+
         try {
             $Target.Value.Location = $TargetPath
         } catch {
@@ -366,7 +366,7 @@ function moveFileToiTunes {
             Write-Warning "moveFileToiTunes: Removing $TargetPath"
             Remove-Item -LiteralPath $TargetPath -Force
             return "Failed to update iTunes"
-        } 
+        }
     }
 
     if($PSCmdlet.ShouldProcess($File.Location,"Remove-Item")){
@@ -379,7 +379,7 @@ function moveFileToiTunes {
         }
     }
 
-    return $Status    
+    return $Status
 }
 
 function removeEmptyFolders {
@@ -498,7 +498,7 @@ foreach($File in $FileData){
     do {
         $Search = generateSearchString -MetaData $File -Properties $Properties
         $SearchResults = Search-iTunesLibrary -Search $Search
-        
+
         if($SearchResults){
             $ExactMatch = matchSearchResultsExactly -MetaData $File -Target $SearchResults
         } else {
@@ -531,12 +531,12 @@ foreach($File in $FileData){
 
     ###########################################################################
     # Work out what to do with the "source" file
-    
+
     $obj = $File | Select-Object -Property Location,Status
 
     if($Target.Count -gt 1){
         Write-Warning ("Multiple matches in iTunes: {0} - {1} - {2}" -f $File.Album, $File.Artist, $File.Name)
-        $obj.Status = "Multiple matches in iTunes"        
+        $obj.Status = "Multiple matches in iTunes"
     } elseif($Target.Count -eq 1) {
         if("Location" -notin $Target.PSObject.Properties.Name -or $Force){
             $obj.Status = moveFileToiTunes -File $File -Target ([ref]$Target[0])
@@ -549,7 +549,7 @@ foreach($File in $FileData){
         } else {
             Write-Verbose "File already present: $($Target.Location)"
             $obj.Status = "Duplicate"
-        }    
+        }
     } elseif($AddMissing){
         Write-Verbose "Adding new file to iTunes"
         $obj.Status = moveFileToiTunes -File $File -Add -Reason "Add new file"

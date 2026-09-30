@@ -19,7 +19,7 @@ $pic = [taglib.picture]::createfrompath("c:\Dropbox\Netcasts\Todd Netcast 1 - 48
 $media.Tag.Pictures = $pic
 
 # Save the file back
-$media.Save() 
+$media.Save()
 #>
 
 function Set-mp3TrackData {
@@ -29,7 +29,7 @@ function Set-mp3TrackData {
             ValueFromPipeline=$true)]
         [string]
         $Path,
-        
+
         [Parameter()]
         [string]
         $Attribute,

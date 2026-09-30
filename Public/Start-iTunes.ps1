@@ -1,7 +1,7 @@
 function Start-iTunes {
     [CmdletBinding(SupportsShouldProcess)]
     param()
-    
+
     $iTunesApplication = $null
 
     if($PSCmdlet.ShouldProcess("iTunes.Application","New-Object")){

@@ -4,7 +4,7 @@ function Get-iTunesSelectedTracks {
         return $false
     } else {
         $iTunesSelectedTracks = $iTunesApplication.SelectedTracks
-        
+
         if(-not $iTunesSelectedTracks){
             Write-Warning "No tracks selected"
             return $null

@@ -7,25 +7,25 @@ function Search-iTunesLibrary {
         [ValidateNotNullOrEmpty()]
         [string]
         $Search,
-        
-        [Parameter( 
+
+        [Parameter(
             ParameterSetName="Track",
             ValueFromPipelineByPropertyName)]
         [string]
         $Album = "",
-        
+
         [Parameter(
             ParameterSetName="Track",
             ValueFromPipelineByPropertyName)]
         [string]
         $Artist = "",
-        
+
         [Parameter(
             ParameterSetName="Track",
             ValueFromPipelineByPropertyName)]
         [string]
         $Name = "",
-        
+
         [Parameter(
             ParameterSetName="Track",
             ValueFromPipelineByPropertyName)]
@@ -39,25 +39,25 @@ function Search-iTunesLibrary {
         [Parameter(ParameterSetName="Track")]
         [switch]
         $MatchAll,
-        
+
         [Parameter()]
         [ITPlaylistSearchField]
         $SearchType = [ITPlaylistSearchField]::ITPlaylistSearchFieldVisible,
-        
+
         [Parameter()]
         [System.Object]
         $iTunesLibrary = $(Get-iTunesLibrary)
     )
-    
+
     $SearchString = if($PsCmdlet.ParameterSetName -eq "Track"){
-        @(  (cleanSearchString $Artist), 
+        @(  (cleanSearchString $Artist),
             (cleanSearchString $Album),
             (cleanSearchString $Name)
         ) -join " "
     } else {
         cleanSearchString $Search
     }
-    
+
     if([string]::IsNullOrWhiteSpace($SearchString)){
         Write-Warning "Search-iTunesLibrary: Search string is empty after cleaning"
         Write-Debug "Search-iTunesLibrary: ""$Search"""
@@ -69,11 +69,14 @@ function Search-iTunesLibrary {
     } else {
         $SearchResults = @()
     }
-    
+
     if(-not $SearchResults){
         Write-Debug "Search-iTunesLibrary: returned no results for $SearchString"
         return $null
     }
+
+    # Filter for file-based tracks only, excluding things like podcasts, URL streams, etc.
+    $SearchResults = $SearchResults | Where-Object { $_.Kind -eq 1 } # ITTrackKindFile
 
     if($PsCmdlet.ParameterSetName -eq "Track"){
         if($ExactMatch){
@@ -120,7 +123,7 @@ function Search-iTunesLibrary {
 
         if($TrackNumber){
             $SearchResults = $SearchResults |
-                Where-Object {$_.Tracknumber -eq $TrackNumber}        
+                Where-Object {$_.Tracknumber -eq $TrackNumber}
         }
     }
 
