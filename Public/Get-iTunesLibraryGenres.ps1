@@ -13,7 +13,7 @@
   # always be a genre called "Compilations"
   $Genres = @()
   $Genres+= "Compilations"
-  $iTunes.LibraryPlaylist.Tracks | ?{($_.Compilation -eq $false) -and ($_.Genre -ne $null)} `
+  $iTunesLibrary.Tracks | ?{($_.Compilation -eq $false) -and ($_.Genre -ne $null)} `
     | Group-Object Genre | %{$Genres+= $_.Name}
 
   return $Genres

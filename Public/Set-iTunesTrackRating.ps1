@@ -21,9 +21,9 @@
 
     foreach($Track in $Tracks){
         # Run a case-sensitive match to see if we need to change anything, as we don't want to waste
-        # time updating names that don't need to change.
-        if(-not($Track.Genre -cmatch $Genre)){
-            Set-iTunesTrackData -Attribute Genre -Value $Genre
+        # time updating tracks that don't need to change.
+        if(-not($Track.Rating -eq $Rating)){
+            Set-iTunesTrackData -Tracks $Track -Attribute Rating -Value $Rating
         }
     }
 }
