@@ -56,7 +56,11 @@ function Set-mp3TrackData {
         $Attribute,
 
         [Parameter()]
+        # The ValidateScript is what constrains this to Int, String or DateTime.
+        # The type stays [System.Object] so the validation attribute, rather than
+        # the binder, produces the error message naming the allowed values.
         [ValidateScript({$_.GetType() -in ([Int],[String],[DateTime])})]
+        [System.Object]
         $Value
     )
 

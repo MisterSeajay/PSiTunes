@@ -18,6 +18,7 @@
     [OutputType([xml])]
     param(
         [Parameter()]
+        [string]
         $Path = $iTunesApplication.LibraryXMLPath
     )
 

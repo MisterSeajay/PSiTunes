@@ -18,6 +18,7 @@
     [OutputType([PSCustomObject])]
     param(
         [Parameter()]
+        [System.Object]
         $XmlLibrary = (Get-iTunesXmlLibrary)
     )
 

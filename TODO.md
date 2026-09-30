@@ -14,18 +14,13 @@ Guidance for the project lives in `AGENTS.md`; cmdlet detail lives in
 
 ## Read this first
 
-Two of the items below are load-bearing for anything else that touches the
-code, and are worth doing before the rest:
-
 - **The module starts iTunes when it is imported.** Every command in `Public/`
   reaches the iTunes COM automation object, and `PSiTunes.psm1` calls
   `Start-iTunes` and `Get-iTunesLibrary` at import time. That makes the module
   impossible to import for help, for `Get-Command`, or for a test that has
-  nothing to do with iTunes. See "Testing" below; fixing it properly is the
-  single change that unblocks the most work here.
-- **There is no test suite at all.** Several items below are bugs that a test
-  would have caught, and at least two bugs already fixed this way were only
-  found by reading the code.
+  nothing to do with iTunes. The test suite works around this by dot-sourcing
+  the files it needs rather than importing the module; fixing the module itself
+  is the single change that would unblock the most work here.
 
 ## Documentation
 
@@ -129,6 +124,21 @@ reported failure, which is the point: they are silent.
   of a release is not something that can be checked by reading. A test that
   counts live handles across a loop would show whether the fix works.
 
+- [ ] **`cleanCharacterSet` destroys non-ASCII text, and is dead code.**
+  It round-trips a string through ISO-8859-8 and back as UTF-8. ISO-8859-8 has no
+  code point for `é`, so it encodes to `?`, and that decodes as a plain `e`:
+  `café` comes back as `cafe`, and a Cyrillic character comes back as `?`.
+  Verified by inspecting the bytes. Anything non-ASCII that passed through this
+  would be silently mangled, which matters for a module handling music metadata.
+
+  It is currently **called from nowhere** — defined, exported by nothing, and
+  unreferenced. So the bug is latent rather than active, which is why it is
+  recorded rather than fixed here: the function's purpose is not recoverable from
+  the code, and the fix depends on whether it was meant to convert *from*
+  ISO-8859-8 (in which case the round trip is backwards) or to sanitise text
+  (in which case it should be deleted). Either way it should not sit in
+  `Private/` looking load-bearing.
+
 - [ ] **`Set-iTunesTrackName` takes its library from a self-assignment.**
   Line 48 is `$iTunesLibrary = $iTunesLibrary  # Uses global variable if set`,
   where the parameter's default is the identically named global. This works
@@ -144,44 +154,98 @@ reported failure, which is the point: they are silent.
 
 ## Testing
 
-- [ ] **Create `Tests/` and a Pester 5 suite.** Nothing is tested, so nothing
-  gates a change. `AGENTS.md` 1.8 is the specification.
+- [x] **Create `Tests/` and a Pester suite.** 35 tests across two files, plus
+  `Scripts/Invoke-Tests.ps1` as the runner. All pass.
 
-  The hard part is that this module is not hermetic. Two approaches, and they
-  are not equally useful:
+  `Tests/Private.Tests.ps1` unit-tests the pure helpers, which need no iTunes.
+  `Tests/Module.Tests.ps1` checks structure: one function per file, approved
+  verbs, `CmdletBinding` present, every parameter typed, help complete, and the
+  manifest's export list matching `Public/` exactly.
 
-  - **Unit-test `Private/` with injected data.** `cleanLocalUri`,
-    `cleanSearchString`, `parsePlistDict`, `convertToCapitalizedWords`,
-    `convertFromFileAttributes` and `getDataFromFilePath` are all pure string
-    or object transforms and can be tested with no iTunes at all. This is where
-    most of the value is, and it is achievable today.
-  - **Integration-test the `Public/` COM commands.** This needs iTunes
-    installed, a populated library, and the machine's real media path. Keep it
-    small, and make it skip loudly rather than silently pass when iTunes is
-    absent — `AGENTS.md` 1.8 is explicit that a check which is skipped silently
-    is not a check.
+  Two things about Pester 6 that cost time and will cost it again:
 
-  Per 1.8, the suite must set `Run.PassThru` and treat a `$null` result as a
-  failure, and the runner must exit non-zero. It is also worth proving the
-  runner can fail by running it against a suite that is meant to fail, per the
-  same section.
+  - **`$PSScriptRoot` inside a `BeforeAll` is the directory Pester was invoked
+    from, not the test file's directory.** Using it to locate `Private/`
+    silently resolved to the wrong folder, sourced nothing, and left 20 tests
+    asserting against functions that did not exist. `$PSCommandPath` is the test
+    file. `Tests/Module.Tests.ps1` now opens with a Describe that asserts the
+    helpers are actually defined, so a setup failure cannot again present as a
+    green suite.
+  - **`Should -Be` is case-insensitive; `Should -BeExactly` is not.** Assertions
+    like `convertToCapitalizedWords 'hello world' | Should -Be 'Hello World'`
+    cannot ever fail, because the only difference is case. Every string
+    assertion in the suite now uses `-BeExactly`.
 
-- [ ] **Guard the help with a test.** `AGENTS.md` 1.8 asks for a test that
-  fails when a public function loses its help block, its `.SYNOPSIS`, or a
-  `.PARAMETER` entry. All 23 functions currently pass such a check, verified
-  via the AST: documented parameters equal declared parameters in both
-  directions. There is no allow-list of undocumented parameters, because there
-  are none, so the test starts green and stays meaningful.
+- [x] **Prove the gate can fail.** Done, per `AGENTS.md` 1.8:
 
-  Two AST gotchas from 1.4 apply and were hit while doing this by hand:
-  `GetHelpContent()` returns `$null` on the file-level `ScriptBlockAst` and must
-  be called on the `FunctionDefinitionAst`, and the parser upper-cases the
-  parameter keys while the dictionary is case-sensitive on lookup.
+  - Sabotaging `Private/convertToCapitalizedWords.ps1` so it returns its input
+    unchanged: 33 passed, 2 failed, exit 1.
+  - Removing a type constraint from `Get-SimpleAttributes.ps1`: exit 1.
+  - Removing that function's help block: exit 1.
+  - Adding a test file that cannot be parsed: 35 passed, 0 failed, but 1 failed
+    *container*, exit 1. This is the case a `FailedCount`-only gate would call a
+    pass.
+  - Pointing the runner at an empty directory: exit 1.
+  - Passing a non-existent path: exit 1.
 
-- [ ] **Add a PSScriptAnalyzer gate, starting at `-Severity Error`.** Per
-  `AGENTS.md` 1.8 a gate needs a baseline before it needs a threshold, and the
-  threshold needs to have been seen failing. Establish the current count first,
-  then decide whether to fix or freeze it.
+- [x] **Guard the help with a test.** `Tests/Module.Tests.ps1` fails if a public
+  function loses its help block, its `.SYNOPSIS`, its `.DESCRIPTION`, its
+  `.EXAMPLE`, or a `.PARAMETER` entry, and also if a `.PARAMETER` names something
+  not declared. All 23 pass. There is no allow-list, because there is nothing to
+  allow.
+
+  It also found seven untyped parameters, all now fixed: `$XmlLibrary` in
+  `Get-iTunesMediaLocation` and `Get-iTunesXmlLibraryTracks`, `$Path` in
+  `Get-iTunesXmlLibrary`, `$Track` in `Format-iTunesFileName` and
+  `Get-SimpleAttributes`, and `$Value` in `Set-iTunesTrackData` and
+  `Set-mp3TrackData`. The two `$Value` parameters are `[System.Object]` on
+  purpose: their `ValidateScript` is what constrains them to Int, String or
+  DateTime, and keeping the type loose means the validation attribute produces
+  the error rather than the binder.
+
+- [x] **Add a PSScriptAnalyzer gate at `-Severity Error`.** Wired into
+  `Scripts/Invoke-Tests.ps1`, which now runs the tests and the analyzer and
+  exits non-zero on either.
+
+  The baseline, measured before setting the threshold: **0 errors, 66 warnings**,
+  6 informational. Error is the right first gate because the codebase is clean at
+  that level. The warnings, by count:
+
+  | Rule | Count |
+  | --- | --- |
+  | `PSUseProcessBlockForPipelineCommand` | 11 |
+  | `PSUseSingularNouns` | 9 |
+  | `PSAvoidUsingWriteHost` | 9 |
+  | `PSAvoidGlobalVars` | 8 |
+  | `PSShouldProcess` | 8 |
+  | `PSAvoidUsingCmdletAliases` | 7 |
+  | `PSReviewUnusedParameter` | 6 |
+  | `PSPossibleIncorrectComparisonWithNull` | 5 |
+  | `PSUseOutputTypeCorrectly` | 4 |
+  | `PSAvoidUsingPositionalParameters` | 2 |
+  | `PSAvoidDefaultValueForMandatoryParameter` | 1 |
+  | `PSAvoidDefaultValueSwitchParameter` | 1 |
+
+  Lowering the gate to Warning is a decision to make, not a side effect, and each
+  group wants a different answer. `PSUseProcessBlockForPipelineCommand` at 11 is
+  the largest and the most interesting: the seven in `Public/` are now fixed, so
+  the remainder are in `Private/` and `Scripts/`. `PSShouldProcess` at 8 marks
+  commands that mutate state without `-WhatIf`, which several in this module
+  arguably should have. `PSUseSingularNouns` at 9 will not be fixed: the
+  `iTunes`-suffixed nouns are deliberate and renaming them would break every
+  script that uses the module.
+
+- [ ] **Integration tests for the COM commands.** Still not done, and still the
+  largest gap in coverage. Everything tested so far is either a pure helper or a
+  structural check; not one test exercises a command against a real library.
+  This needs iTunes installed, a populated library, and the real media path.
+
+  Keep it small, and make it skip loudly rather than silently pass when iTunes is
+  absent. `AGENTS.md` 1.8 is explicit that a check skipped silently is not a
+  check, and the pattern is already in `Invoke-Tests.ps1` for a missing Pester.
+
+  The COM release item below is the one that most needs this, because whether a
+  release is in the right place cannot be determined by reading the code.
 
 ## Module structure
 
@@ -239,6 +303,18 @@ reported failure, which is the point: they are silent.
   the COM release item above rather than tracked twice.
 
 ## Ideas, not yet decided
+
+- [ ] **Decide what to do about the 66 analyzer warnings.** Not a task list, a
+  menu. Some groups are worth fixing, some should be formally excluded, and at
+  least one should be left alone on purpose. Settling it is what makes lowering
+  the gate to Warning possible. The counts are in the Testing section above.
+
+  The `.gitattributes` in this repository is also worth a look here: it pins
+  `*.ps1` as `text`, which does not record that those files carry a BOM. Git
+  treats the BOM as part of the content, so it is preserved, but nothing in the
+  attributes would stop a future contributor stripping it. `AGENTS.md` 1.1 asks
+  for the BOM to be committed rather than synthesised, which is what happens; a
+  test asserting the BOM is present on every source file would enforce it.
 
 - [ ] **Build script and packaging.** There is no build step. A built module
   would need `Public/`, `Private/`, `Classes/` and `lib/TagLibSharp.dll` at

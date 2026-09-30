@@ -16,6 +16,7 @@
     [CmdletBinding()]
     [OutputType([string])]
     param(
+        [System.Object]
         $XmlLibrary = (Get-iTunesXmlLibrary)
     )
 

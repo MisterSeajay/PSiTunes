@@ -16,6 +16,7 @@
     [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeline)]
+        [System.Object]
         $Track
     )
 

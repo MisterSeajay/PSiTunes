@@ -33,7 +33,9 @@
     [CmdletBinding(DefaultParameterSetName="ByTrack")]
     [OutputType([string])]
     param(
-        [Parameter(ParameterSetName="ByTrack", ValueFromPipeline)]$Track,
+        [Parameter(ParameterSetName="ByTrack", ValueFromPipeline)]
+        [System.Object]
+        $Track,
 
         [Parameter(ParameterSetName="ByMetaData", Mandatory)][int]$DiscNumber,
         [Parameter(ParameterSetName="ByMetaData", Mandatory)][int]$TrackNumber,
