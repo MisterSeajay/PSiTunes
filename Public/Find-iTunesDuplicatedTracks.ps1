@@ -26,10 +26,27 @@
         $Tracks = (Get-iTunesSelectedTracks)
     )
 
-    Write-Verbose "Searching for duplicates over $($Tracks.Count) tracks"
+    BEGIN {
+        # This command works on the whole set rather than one track at a time: a
+        # duplicate is a group, so a track cannot be judged until every track has
+        # been seen. Collecting in begin and reporting in end is what makes the
+        # pipeline safe here. Reporting per object would report nothing, because
+        # the first track seen is never a duplicate on its own.
+        $AllTracks = [System.Collections.Generic.List[object]]::new()
+    }
 
-    return ($Tracks |
-        Where-Object {$_.Grouping -notmatch "Sync"} |
-        Group-Object -Property Artist,Name |
-        Where-Object {$_.Count -gt 1}).Name
+    PROCESS {
+        foreach($Track in $Tracks){
+            $AllTracks.Add($Track)
+        }
+    }
+
+    END {
+        Write-Verbose "Searching for duplicates over $($AllTracks.Count) tracks"
+
+        return ($AllTracks |
+            Where-Object {$_.Grouping -notmatch "Sync"} |
+            Group-Object -Property Artist,Name |
+            Where-Object {$_.Count -gt 1}).Name
+    }
 }

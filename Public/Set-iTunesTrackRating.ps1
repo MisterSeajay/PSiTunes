@@ -31,17 +31,25 @@
         $Rating
     )
 
-    # Correct "user star" values 1-5 to the range 20-100
-    if($Rating -lt 20){
-        $Rating = $Rating * 20
+    BEGIN {
     }
 
-    foreach($Track in $Tracks){
-        # Run a case-sensitive match to see if we need to change anything, as we don't want to waste
-        # time updating tracks that don't need to change.
-        if(-not($Track.Rating -eq $Rating)){
-            Set-iTunesTrackData -Tracks $Track -Attribute Rating -Value $Rating
+    PROCESS {
+        # Correct "user star" values 1-5 to the range 20-100. Done per pipeline
+        # object rather than once up front, so a track never sees an already
+        # multiplied rating.
+        $EffectiveRating = if($Rating -lt 20){ $Rating * 20 } else { $Rating }
+
+        foreach($Track in $Tracks){
+            # Only write where the stored value differs, so repeated runs do not
+            # touch tracks that do not need changing.
+            if($Track.Rating -ne $EffectiveRating){
+                Set-iTunesTrackData -Tracks $Track -Attribute Rating -Value $EffectiveRating
+            }
         }
+    }
+
+    END {
     }
 }
 

@@ -37,9 +37,20 @@ function Get-iTunesFileLocations {
 
     $iTunesFileLocations = $iTunesLibraryDict | Foreach-Object {
         $Counter++
+        # Counter of XmlCount, not the other way round. The old expression was
+        # floor($XmlCount/$Counter), which reported 100% on the first item and 1%
+        # on the last, so the bar ran backwards. Guard the empty case: an empty
+        # dictionary never enters this loop, but XmlCount is read outside it, so
+        # a guard is what keeps the expression from dividing by zero.
+        if($XmlCount -gt 0){
+            $PercentComplete = [math]::Floor(($Counter / $XmlCount) * 100)
+        } else {
+            $PercentComplete = 100
+        }
+
         Write-Progress -Activity "Reading XML dictionary" `
             -CurrentOperation "$Counter of $XmlCount" `
-            -PercentComplete [math]::floor($XmlCount/$Counter)
+            -PercentComplete $PercentComplete
 
         $ht=@{}
 

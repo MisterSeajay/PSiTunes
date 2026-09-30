@@ -29,43 +29,54 @@
         $Playlist = "Sync (All)"
     )
 
-    $SyncTracks = (Get-iTunesPlaylist -Name $Playlist -ExactMatch).Tracks
+    BEGIN {
+        # Playlists are collected and processed in end rather than one per pipeline
+        # object, so that piping several playlist names in synchronises each of
+        # them once. Processing per object is safe here, unlike the track
+        # commands, because each playlist is independent of the others.
+    }
 
-    Write-Debug "$($SyncTracks.Count) track to synchronize from $Playlist"
+    PROCESS {
+        $SyncTracks = (Get-iTunesPlaylist -Name $Playlist -ExactMatch).Tracks
 
-    # Make a summary list of each distinct Artist and Track Name combination
-    $SyncSummary = $SyncTracks | Select-Object Artist,Name | Sort-Object Artist,Name | Get-Unique -AsString
+        Write-Debug "$($SyncTracks.Count) track to synchronize from $Playlist"
 
-    Write-Debug "$($SyncSummary.Count) distinct Artist-Song combinations"
+        # Make a summary list of each distinct Artist and Track Name combination
+        $SyncSummary = $SyncTracks | Select-Object Artist,Name | Sort-Object Artist,Name | Get-Unique -AsString
 
-    foreach($Track in $SyncSummary){
-        # Get the tracks matching this "item" in the SyncSummary (Artist and Track Name combination)
-        $Tracks = $SyncTracks | ?{($_.Name -eq $Track.Name) -and ($_.Artist -eq $Track.Artist)}
+        Write-Debug "$($SyncSummary.Count) distinct Artist-Song combinations"
 
-        # Check whether we need to synchronize this Artist-Song combination
-        $PlayedCount = $Tracks.PlayedCount | Measure-Object -Maximum -Minimum
+        foreach($Track in $SyncSummary){
+            # Get the tracks matching this "item" in the SyncSummary (Artist and Track Name combination)
+            $Tracks = $SyncTracks | ?{($_.Name -eq $Track.Name) -and ($_.Artist -eq $Track.Artist)}
 
-        if($PlayedCount.Maximum -eq $PlayedCount.Minimum){
-            Write-Verbose "$($Track.Artist) - $($Track.Name) is already in-sync; skipping"
-            continue
-        }
+            # Check whether we need to synchronize this Artist-Song combination
+            $PlayedCount = $Tracks.PlayedCount | Measure-Object -Maximum -Minimum
 
-        # Only attempt to update entries in the SynchronizationList where there are more than one
-        # tracks with the same Name and Artist.
-        if($Tracks.Count -gt 1){
-            if($PSCmdlet.ShouldProcess("$($Track.Artist) - $($Track.Name)","Set-iTunesTrackPlayedData")){
-                Write-Verbose "Synchronizing $($Track.Artist) - $($Track.Name)"
-
-                try {
-                    $UpdatedTracks = Sync-iTunesTrackData -Tracks $Tracks -SyncPlayedData
-                }
-                catch {
-                    throw
-                    break
-                }
+            if($PlayedCount.Maximum -eq $PlayedCount.Minimum){
+                Write-Verbose "$($Track.Artist) - $($Track.Name) is already in-sync; skipping"
+                continue
             }
-        } else {
-            Write-Warning "Only 1 entry found for $($Track.Artist) - $($Track.Name)"
+
+            # Only attempt to update entries in the SynchronizationList where there are more than one
+            # tracks with the same Name and Artist.
+            if($Tracks.Count -gt 1){
+                if($PSCmdlet.ShouldProcess("$($Track.Artist) - $($Track.Name)","Set-iTunesTrackPlayedData")){
+                    Write-Verbose "Synchronizing $($Track.Artist) - $($Track.Name)"
+
+                    try {
+                        $UpdatedTracks = Sync-iTunesTrackData -Tracks $Tracks -SyncPlayedData
+                    }
+                    catch {
+                        throw
+                    }
+                }
+            } else {
+                Write-Warning "Only 1 entry found for $($Track.Artist) - $($Track.Name)"
+            }
         }
+    }
+
+    END {
     }
 }

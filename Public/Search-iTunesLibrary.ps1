@@ -86,83 +86,99 @@
         $iTunesLibrary = $(Get-iTunesLibrary)
     )
 
-    $SearchString = if($PsCmdlet.ParameterSetName -eq "Track"){
-        @(  (cleanSearchString $Artist),
-            (cleanSearchString $Album),
-            (cleanSearchString $Name)
-        ) -join " "
-    } else {
-        cleanSearchString $Search
+    BEGIN {
     }
 
-    if([string]::IsNullOrWhiteSpace($SearchString)){
-        Write-Warning "Search-iTunesLibrary: Search string is empty after cleaning"
-        Write-Debug "Search-iTunesLibrary: ""$Search"""
-        return $null
-    }
+    PROCESS {
+        # Work on copies: the incoming artist, album and name are overwritten below
+        # in the pattern-matching branch, and a parameter is shared across every
+        # pipeline object, so mutating it would corrupt later iterations.
+        $LocalArtist = $Artist
+        $LocalAlbum = $Album
+        $LocalName = $Name
 
-    if($PsCmdlet.ShouldProcess($SearchString, "Search")){
-        $SearchResults = @($iTunesLibrary.Search($SearchString, $SearchType))
-    } else {
-        $SearchResults = @()
-    }
+        $SearchString = if($PsCmdlet.ParameterSetName -eq "Track"){
+            @((cleanSearchString $LocalArtist),
+                (cleanSearchString $LocalAlbum),
+                (cleanSearchString $LocalName)
+            ) -join " "
+        } else {
+            cleanSearchString $Search
+        }
 
-    if(-not $SearchResults){
-        Write-Debug "Search-iTunesLibrary: returned no results for $SearchString"
-        return $null
-    }
+        if([string]::IsNullOrWhiteSpace($SearchString)){
+            Write-Warning "Search-iTunesLibrary: Search string is empty after cleaning"
+            Write-Debug "Search-iTunesLibrary: ""$Search"""
+            return
+        }
 
-    # Filter for file-based tracks only, excluding things like podcasts, URL streams, etc.
-    $SearchResults = $SearchResults | Where-Object { $_.Kind -eq 1 } # ITTrackKindFile
+        if($PsCmdlet.ShouldProcess($SearchString, "Search")){
+            $Results = @($iTunesLibrary.Search($SearchString, $SearchType))
+        } else {
+            $Results = @()
+        }
 
-    if($PsCmdlet.ParameterSetName -eq "Track"){
-        if($ExactMatch){
-            try {
-                $SearchResults = $SearchResults | Where-Object { `
-                    ($_.Genre -notin ("Podcast"))} | Where-Object { `
-                    ($Artist -in @($_.Artist, $_.AlbumArtist, "")) -and `
-                    ($Album -in @($_.Album, "")) -and `
-                    ($Name -in @($_.Name, ""))
+        if(-not $Results){
+            Write-Debug "Search-iTunesLibrary: returned no results for $SearchString"
+            return
+        }
+
+        # Filter for file-based tracks only, excluding things like podcasts, URL streams, etc.
+        $Results = $Results | Where-Object { $_.Kind -eq 1 } # ITTrackKindFile
+
+        if($PsCmdlet.ParameterSetName -eq "Track"){
+            if($ExactMatch){
+                try {
+                    $Results = $Results | Where-Object { `
+                        ($_.Genre -notin ("Podcast"))} | Where-Object { `
+                        ($LocalArtist -in @($_.Artist, $_.AlbumArtist, "")) -and `
+                        ($LocalAlbum -in @($_.Album, "")) -and `
+                        ($LocalName -in @($_.Name, ""))
+                    }
+                }
+                catch {
+                    Write-Debug ($Results | Out-String)
+                    throw
+                }
+
+            } elseif($MatchAll){
+                foreach($Token in ((cleanSearchString $LocalArtist) -split('\s+'))){
+                    $Results = $Results |
+                        Where-Object {$_.Artist -match [regex]::Escape($Token)}
+                }
+
+                foreach($Token in ((cleanSearchString $LocalAlbum) -split('\s+'))){
+                    $Results = $Results |
+                        Where-Object {$_.Album -match [regex]::Escape($Token)}
+                }
+
+                foreach($Token in ((cleanSearchString $LocalName) -split('\s+'))){
+                    $Results = $Results |
+                        Where-Object {$_.Name -match [regex]::Escape($Token)}
+                }
+
+            } else {
+                $PatternArtist = cleanSearchString $LocalArtist -IgnoreNonAlphaNumeric
+                $PatternAlbum = cleanSearchString $LocalAlbum -IgnoreNonAlphaNumeric
+                $PatternName = cleanSearchString $LocalName -IgnoreNonAlphaNumeric
+
+                $Results = $Results | Where-Object {`
+                    ($_.Artist -match $PatternArtist) -and `
+                    ($_.Album -match $PatternAlbum) -and `
+                    ($_.Name -match $PatternName)
                 }
             }
-            catch {
-                Write-Debug ($SearchResults | Out-String)
-                throw
-            }
 
-        } elseif($MatchAll){
-            foreach($Token in ((cleanSearchString $Artist) -split('\s+'))){
-                $SearchResults = $SearchResults |
-                    Where-Object {$_.Artist -match [regex]::Escape($Token)}
-            }
-
-            foreach($Token in ((cleanSearchString $Album) -split('\s+'))){
-                $SearchResults = $SearchResults |
-                    Where-Object {$_.Album -match [regex]::Escape($Token)}
-            }
-
-            foreach($Token in ((cleanSearchString $Name) -split('\s+'))){
-                $SearchResults = $SearchResults |
-                    Where-Object {$_.Name -match [regex]::Escape($Token)}
-            }
-
-        } else {
-            $Artist = cleanSearchString $Artist -IgnoreNonAlphaNumeric
-            $Album = cleanSearchString $Album -IgnoreNonAlphaNumeric
-            $Name = cleanSearchString $Name -IgnoreNonAlphaNumeric
-
-            $SearchResults = $SearchResults | Where-Object {`
-                ($_.Artist -match $Artist) -and `
-                ($_.Album -match $Album) -and `
-                ($_.Name -match $Name)
+            if($TrackNumber){
+                $Results = $Results |
+                    Where-Object {$_.Tracknumber -eq $TrackNumber}
             }
         }
 
-        if($TrackNumber){
-            $SearchResults = $SearchResults |
-                Where-Object {$_.Tracknumber -eq $TrackNumber}
-        }
+        return $Results
     }
 
-    return $SearchResults
+    END {
+    }
 }
+

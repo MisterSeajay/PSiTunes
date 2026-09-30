@@ -69,31 +69,49 @@ code, and are worth doing before the rest:
 Each of these is a defect present at the time of writing. None has caused a
 reported failure, which is the point: they are silent.
 
-- [ ] **Seven functions take pipeline input but have no `process` / `end`
-  blocks.** `AGENTS.md` 1.2 requires explicit sections on anything accepting
+- [x] **Seven functions took pipeline input with no `process` / `end` blocks.**
+  `AGENTS.md` 1.2 requires explicit sections on anything accepting
   `ValueFromPipeline`, because an un-sectioned body only processes the final
   pipeline object. Affected: `Find-iTunesDuplicatedTracks`,
   `Search-iTunesLibrary`, `Set-iTunesTrackGenre`, `Set-iTunesTrackRating`,
   `Set-mp3TrackData`, `Sync-iTunesPlaylistTracks`, `Sync-iTunesTrackData`.
 
-  These work today because each is normally invoked with one object at a time.
-  They will silently do the wrong thing the first time someone pipes several
-  tracks in, which is the normal way to use them. This is the most dangerous
-  item on the list, because the failure mode is data loss rather than an error.
+  This was not theoretical. Demonstrated directly: piping three objects `A`,
+  `B`, `C` into an un-sectioned function processed only `C`. So
+  `Get-iTunesSelectedTracks | Set-iTunesTrackRating -Rating 5` on three tracks
+  set one rating, on the last track only, silently. All seven are fixed and
+  verified by piping several objects in and checking every one was handled.
 
-  Note that `Set-iTunesTrackRating` in particular has no `end` block and writes
-  to the library, so `Get-iTunesSelectedTracks | Set-iTunesTrackRating -Rating 5`
-  on three tracks would set one rating, not three. The same applies to
-  `Set-iTunesTrackGenre` and the two `Sync-` commands.
+  The fix is not uniform, and that is the part worth remembering:
 
-- [ ] **`Get-iTunesFileLocations` reports progress backwards.**
-  `-PercentComplete [math]::floor($XmlCount/$Counter)` has the division the
-  wrong way round. At the first track it reports 0%, and by the last it reports
-  `$XmlCount`, which exceeds 100. It should be
-  `[math]::floor($Counter / $XmlCount * 100)`. Confirmed by arithmetic:
-  `floor(10/100)` is 0 and `floor(100/10)` is 10. `Write-Progress` clamps a
-  value above 100, so the visible effect is a bar that sits at 0% for the whole
-  run and then jumps to full — not a crash, just a useless progress bar.
+  - Per-object commands (`Set-iTunesTrackGenre`, `Set-iTunesTrackRating`,
+    `Set-mp3TrackData`, `Search-iTunesLibrary`, `Sync-iTunesPlaylistTracks`)
+    do their work in `process`, once per object.
+  - Whole-set commands (`Find-iTunesDuplicatedTracks`,
+    `Sync-iTunesTrackData`) *cannot* work per object: a duplicate is a
+    relationship between tracks, and a sync is a property of a group. These
+    collect in `begin` and report in `end`. Converting them naively to
+    `process` would have been a worse bug than the one being fixed.
+
+  Two further problems were fixed at the same time.
+  `Set-iTunesTrackGenre` compared genres with `-notmatch`, treating the genre
+  as a regular expression, so a genre such as `C++/core (live)` would either
+  throw or match the wrong tracks; it now uses `-cne`, a literal comparison.
+  `Set-iTunesTrackRating` multiplied `$Rating` by 20 in the function body,
+  which under a `process` block would compound once per pipeline object; the
+  conversion is now into a per-object local.
+
+- [x] **`Get-iTunesFileLocations` reported progress backwards.**
+  `-PercentComplete [math]::floor($XmlCount/$Counter)` had the division the
+  wrong way round, so over a 100-entry dictionary the bar started at 100% and
+  fell to 1%: `floor(100/1)` is 100 and `floor(100/100)` is 1. It now reads
+  `floor(($Counter / $XmlCount) * 100)`, which ascends 1, 50, 100, and it
+  guards the empty-dictionary case, which the new expression would otherwise
+  divide by zero.
+
+  Note the direction: the bar ran backwards, it did not sit at zero. An
+  earlier note in this file had that backwards, and said the bar stayed at 0%
+  before jumping to full. Checked with arithmetic rather than by eye.
 
 - [ ] **No command releases its COM references.** `ReleaseComObject` appears
   nowhere in the module. `Get-iTunesLibraryGenres` and `Set-iTunesTrackName`
@@ -106,6 +124,10 @@ reported failure, which is the point: they are silent.
   Needs care rather than a blanket `try/finally`: releasing an object the caller
   still holds is worse than leaking it, so the release has to be at the point
   where the module is done with a reference it owns.
+
+  This is the item that most needs a test suite, because the correct placement
+  of a release is not something that can be checked by reading. A test that
+  counts live handles across a loop would show whether the fix works.
 
 - [ ] **`Set-iTunesTrackName` takes its library from a self-assignment.**
   Line 48 is `$iTunesLibrary = $iTunesLibrary  # Uses global variable if set`,

@@ -60,12 +60,20 @@ function Set-mp3TrackData {
         $Value
     )
 
-    Write-Verbose "Updating $Attribute on $Path"
+    BEGIN {
+    }
 
-    if($PSCmdlet.ShouldProcess($Attribute,"Set attribute")){
-        Write-Debug "Set $Attribute to $Value [$($Value.GetType().FullName)]"
-        $TagLibFile = [TagLib.File]::Create((Resolve-Path $Path))
-        $TagLibFile.Tag.$Attribute = $Value
-        $TagLibFile.Save()
+    PROCESS {
+        Write-Verbose "Updating $Attribute on $Path"
+
+        if($PSCmdlet.ShouldProcess($Attribute,"Set attribute")){
+            Write-Debug "Set $Attribute to $Value [$($Value.GetType().FullName)]"
+            $TagLibFile = [TagLib.File]::Create((Resolve-Path $Path))
+            $TagLibFile.Tag.$Attribute = $Value
+            $TagLibFile.Save()
+        }
+    }
+
+    END {
     }
 }

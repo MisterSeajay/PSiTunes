@@ -30,12 +30,21 @@
         $Genre
     )
 
-    foreach($Track in $Tracks){
-        # Run a case-sensitive match to see if we need to change anything, as we don't want to waste
-        # time updating names that don't need to change.
-        if(-not($Track.Genre -cmatch $Genre)){
-            Set-iTunesTrackData -Track $Track -Attribute Genre -Value $Genre
+    BEGIN {
+    }
+
+    PROCESS {
+        foreach($Track in $Tracks){
+            # Compare with -cne rather than -notmatch: the genre is a literal, not a
+            # pattern, so a genre containing regex metacharacters such as "(" or
+            # "[...]" must be compared as written.
+            if($Track.Genre -cne $Genre){
+                Set-iTunesTrackData -Tracks $Track -Attribute Genre -Value $Genre
+            }
         }
+    }
+
+    END {
     }
 }
 
