@@ -1,4 +1,8 @@
 ﻿function Get-iTunesSelectedTracks {
+    [CmdletBinding()]
+    [OutputType([System.__ComObject])]
+    param()
+
     if(-not $iTunesApplication){
         Write-Error "iTunes not loaded"
         return $false

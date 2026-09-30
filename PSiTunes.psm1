@@ -8,7 +8,7 @@ $PrivateFunctions = Join-Path $PSScriptRoot "Private"
 $PublicFunctions = Join-Path $PSScriptRoot "Public"
 
 foreach($Folder in @($Classes,$PrivateFunctions,$PublicFunctions)){
-    $Functions = Get-ChildItem -Path $Folder *.ps1
+    $Functions = Get-ChildItem -Path $Folder *.ps1 -File
 
     foreach($Function in $Functions){
         . $Function.FullName
