@@ -1,4 +1,31 @@
 ﻿function Get-FileMetadata {
+    <#
+    .SYNOPSIS
+        Reads metadata from audio files on disk.
+    .DESCRIPTION
+        Reads metadata for one or more audio files, by one of three methods:
+        reading the file tags with TagLib, reading extended file attributes, or
+        deriving values from the file path. Accepts a file or a directory; when
+        given a directory only its immediate children are read unless Recurse is
+        used.
+    .PARAMETER Path
+        The file or directory to read. Accepts pipeline input. Defaults to the current location.
+    .PARAMETER RootPath
+        The root to strip from the path when building metadata. Used by the FilePath method.
+    .PARAMETER Method
+        How to read the metadata: TagLib to read the file tags, FileAttributes to read the extended file attributes, or FilePath to derive values from the file path. Defaults to TagLib.
+    .PARAMETER Raw
+        Return the raw values as read, without converting them into MusicFileInfo objects.
+    .PARAMETER Recurse
+        Descend into subdirectories. Without this, a directory yields only its immediate files.
+    .EXAMPLE
+        Get-FileMetadata -Path "D:\Music\Ripped\track.mp3"
+    .EXAMPLE
+        Get-ChildItem -Path "D:\Music\Ripped" -Filter *.mp3 -Recurse | Get-FileMetadata -Method FileAttributes
+    .NOTES
+        The TagLib method only reads .mp3, .m4a and .m4p files; anything else yields nothing.
+        This command reads files only. It does not write tags; use Set-mp3TrackData for that.
+    #>
     [CmdletBinding(SupportsShouldProcess=$false)]
     [OutputType([MusicFileInfo[]])]
     param(

@@ -1,5 +1,21 @@
 ﻿
 function Get-iTunesFileLocations {
+    <#
+    .SYNOPSIS
+        Reads the file locations of every track from the iTunes library XML.
+    .DESCRIPTION
+        Reads the iTunes library XML and returns one object per track, each with a
+        Track ID and a Location. The XML stores both keys in a single flat
+        dictionary, so they are interleaved and matched up here rather than read
+        separately.
+    .PARAMETER iTunesLibraryXml
+        The library XML to read. Defaults to the XML of the running iTunes application.
+    .EXAMPLE
+        Get-iTunesFileLocations
+    .NOTES
+        Reading the library XML does not require walking the library through automation, so this is much faster than iterating iTunesLibrary.Tracks on a large library.
+        Returns objects, not strings, so the result can be filtered or sorted.
+    #>
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([psobject])]
     param(

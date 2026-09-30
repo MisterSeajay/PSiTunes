@@ -1,4 +1,30 @@
 ﻿function Set-iTunesTrackName {
+    <#
+    .SYNOPSIS
+        Renames or normalises the names of iTunes tracks.
+    .DESCRIPTION
+        In the Normalize mode, rewrites the Name of each supplied track by replacing
+        doubled single quotes with a single double quote and capitalising each
+        word. In the Set mode, changes the name of the track at a given library
+        index. Tracks whose name already matches are left alone.
+    .PARAMETER Tracks
+        The tracks to normalise. Accepts pipeline input.
+    .PARAMETER Normalize
+        Normalise the names of the supplied tracks.
+    .PARAMETER TrackIndex
+        The library index of the track to rename.
+    .PARAMETER Name
+        The new name for the track at TrackIndex.
+    .PARAMETER iTunesLibrary
+        The library to look the track up in. Defaults to the global set when the module was imported.
+    .EXAMPLE
+        Get-iTunesPlaylistTracks -Playlist "Chillout" | Set-iTunesTrackName -Normalize
+    .EXAMPLE
+        Set-iTunesTrackName -TrackIndex 42 -Name "New name"
+    .NOTES
+        iTunesLibrary falls back to the module global of the same name. A caller who has a different $iTunesLibrary in scope silently changes which library is modified; pass it explicitly if that matters.
+        This rewrites the Name field only, not the file name on disk.
+    #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(ParameterSetName="Normalize")]

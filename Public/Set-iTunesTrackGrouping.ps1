@@ -1,4 +1,28 @@
 ﻿function Set-iTunesTrackGrouping {
+    <#
+    .SYNOPSIS
+        Adds and removes grouping tags on iTunes tracks.
+    .DESCRIPTION
+        Maintains the semicolon-separated Grouping field of each supplied track.
+        Tags can be added and removed, and the track''s genre can optionally be
+        included as tags as well. Tags are de-duplicated and sorted, and a track
+        whose grouping already matches is left alone. Accepts pipeline input.
+    .PARAMETER Tracks
+        The tracks to change. Accepts pipeline input. Defaults to the tracks currently selected in iTunes.
+    .PARAMETER Add
+        Semicolon-separated tags to add.
+    .PARAMETER Remove
+        Semicolon-separated tags to remove.
+    .PARAMETER IncludeGenre
+        Also add the track's genre, split on spaces, as grouping tags.
+    .EXAMPLE
+        Get-iTunesSelectedTracks | Set-iTunesTrackGrouping -Add "Rip;2026"
+    .EXAMPLE
+        Get-iTunesPlaylistTracks -Playlist "Chillout" | Set-iTunesTrackGrouping -Remove "OldTag" -IncludeGenre
+    .NOTES
+        The grouping value is rewritten in full, sorted and de-duplicated, so existing tags are reordered.
+        Both Add and Remove may contain several tags, separated by semicolons.
+    #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(

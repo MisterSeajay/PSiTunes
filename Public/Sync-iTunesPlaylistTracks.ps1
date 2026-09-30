@@ -1,4 +1,23 @@
 ﻿function Sync-iTunesPlaylistTracks {
+    <#
+    .SYNOPSIS
+        Synchronises duplicate tracks in a sync playlist.
+    .DESCRIPTION
+        Looks for artist and name combinations that appear more than once in a
+        synchronisation playlist, and copies the highest play count across to
+        every copy, so that the same track always shows the same play count and
+        play date whichever entry is scrolled to. Combinations that are already in
+        step are skipped.
+    .PARAMETER Playlist
+        The synchronisation playlist to process. Accepts pipeline input. Defaults to "Sync (All)", matched exactly.
+    .EXAMPLE
+        Sync-iTunesPlaylistTracks
+    .EXAMPLE
+        Sync-iTunesPlaylistTracks -Playlist "Sync (Podcasts)"
+    .NOTES
+        Warns about any artist and name combination found only once; that usually means a sync playlist entry is missing its partner.
+        Changes play counts and play dates in the library, not the files on disk.
+    #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(

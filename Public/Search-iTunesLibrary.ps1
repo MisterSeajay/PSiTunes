@@ -1,4 +1,41 @@
 ﻿function Search-iTunesLibrary {
+    <#
+    .SYNOPSIS
+        Searches the iTunes library for tracks.
+    .DESCRIPTION
+        Searches the library either by a single free-text string, or by the
+        artist, album and name of a track arriving from the pipeline. In the track
+        form the three values are combined into one search string and the results
+        are then narrowed further, either requiring every supplied value to match
+        exactly, requiring all search tokens to match, or requiring them to match
+        as patterns.
+    .PARAMETER Search
+        The text to search for. Required unless searching by track.
+    .PARAMETER Album
+        The album to search for. Read from the pipeline by property name.
+    .PARAMETER Artist
+        The artist to search for. Read from the pipeline by property name.
+    .PARAMETER Name
+        The track name to search for. Read from the pipeline by property name.
+    .PARAMETER TrackNumber
+        Restrict the results to this track number.
+    .PARAMETER ExactMatch
+        Require the artist, album and name to match the results exactly. Ignores anything not supplied.
+    .PARAMETER MatchAll
+        Require every word of the supplied artist, album and name to match. Without this, any one of them matching is enough.
+    .PARAMETER SearchType
+        Which iTunes search field to search: Visible, All, Playlists or Music. Defaults to Visible.
+    .PARAMETER iTunesLibrary
+        The library to search. Defaults to the library of the running iTunes application.
+    .EXAMPLE
+        Search-iTunesLibrary -Search "chillout"
+    .EXAMPLE
+        Get-SimpleAttributes | Search-iTunesLibrary -Artist "Radiohead" -ExactMatch
+    .NOTES
+        Results are filtered to file-based tracks, so podcasts and URL streams are excluded.
+        Returns $null rather than an empty collection when nothing matches, so a null check is the way to test for no results.
+        Supports -WhatIf and -Confirm. Under -WhatIf it returns no results.
+    #>
     [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName="Library")]
     param(
         [Parameter(

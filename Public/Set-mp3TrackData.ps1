@@ -23,6 +23,27 @@ $media.Save()
 #>
 
 function Set-mp3TrackData {
+    <#
+    .SYNOPSIS
+        Sets a tag on an audio file on disk.
+    .DESCRIPTION
+        Writes one tag to an audio file using TagLib, then saves the file. This is
+        the file-based counterpart to Set-iTunesTrackData: it changes the file on
+        disk rather than the library entry, and iTunes will pick the change up on
+        its next scan.
+    .PARAMETER Path
+        The file to write to. Accepts pipeline input.
+    .PARAMETER Attribute
+        The name of the tag to set, for example Album or Title.
+    .PARAMETER Value
+        The value to set. Must be an integer, a string or a DateTime.
+    .EXAMPLE
+        Set-mp3TrackData -Path "D:\Music\Ripped\track.mp3" -Attribute "Album" -Value "Chillout"
+    .NOTES
+        The value must be an Int, String or DateTime; anything else is rejected at parameter binding.
+        This writes to the file directly and immediately, so it cannot be undone from PowerShell.
+        iTunes holds its own copy of the tags. Rescan the library afterwards or the change may not appear in iTunes.
+    #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(

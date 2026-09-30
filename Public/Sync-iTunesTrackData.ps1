@@ -1,4 +1,31 @@
 ﻿function Sync-iTunesTrackData {
+    <#
+    .SYNOPSIS
+        Copies metadata across duplicate iTunes tracks.
+    .DESCRIPTION
+        Takes two or more copies of the same track and makes their metadata agree.
+        Each track is given the merged set of grouping tags from all of them, with
+        unwanted tags such as B-Side and Sync removed, and is given the highest
+        play count, latest play date and highest rating found across the group. A
+        group is expected to be one artist and one song; a group that is not warns
+        and is left alone unless Force is used.
+    .PARAMETER Tracks
+        The tracks to synchronise. Accepts pipeline input. Defaults to the tracks currently selected in iTunes.
+    .PARAMETER SyncPlayedData
+        Accepted for compatibility with Sync-iTunesPlaylistTracks. Play data is always synchronised.
+    .PARAMETER FirstSync
+        Sum the play counts across the group rather than taking the maximum, for the run that builds the initial sync.
+    .PARAMETER Force
+        Synchronise even when the group does not share a single artist and song.
+    .EXAMPLE
+        Get-iTunesSelectedTracks | Sync-iTunesTrackData
+    .EXAMPLE
+        Sync-iTunesTrackData -Tracks $tracks -FirstSync
+    .NOTES
+        Needs at least two tracks; warns and returns otherwise.
+        Tags matching B-Side, Female, NoPlaylist, Purchased, Re-rip, SP or Sync are stripped from the merged grouping.
+        This rewrites the Grouping field of every track in the group, so the tags are reordered and de-duplicated.
+    #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(
