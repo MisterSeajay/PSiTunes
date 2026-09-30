@@ -18,6 +18,8 @@ Thumbs.db
 
 # Secrets
 .env
+.env.*
+!.env.example
 *.crt
 *.csr
 *.key
@@ -38,16 +40,6 @@ nohup.out
 # Local-only files
 *.local*
 local/
-
-################################################################################
-# Local-only files
-
-# Local secrets and machine-specific overrides. These should never be tracked;
-# committing one is a leak, so the rule is here to stop the first commit too.
-*.local
-.env
-.env.*
-!.env.example
 
 ###############################################################################
 # IDE, editors & AI agents

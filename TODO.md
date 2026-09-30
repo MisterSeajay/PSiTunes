@@ -43,13 +43,29 @@ Guidance for the project lives in `AGENTS.md`; cmdlet detail lives in
   is written down: four of the first drafts of PSToolkit's README did not work
   and had to be corrected, two of them because they were product bugs.
 
-- [ ] **Copy the documentation tooling from PSToolkit.** `.markdownlint.json`
-  and `.githooks/pre-commit` do not exist here, so the `AGENTS.md` Documentation
-  section currently tells a reader to run a linter with no config and enable a
-  hook that is not there. `AGENTS.md` has a blockquote marking this, which is a
-  note about a gap rather than a fix. Copy both, then remove the blockquote.
+  One line has been fixed already: the missing blank line after the `# PSiTunes`
+  heading, which markdownlint-cli2 flagged as MD022. That is the whole of the
+  current content; the two-line stub is otherwise unchanged.
+
+  markdownlint-cli2 0.23.3 is installed globally, and all three Markdown files
+  lint clean under `.markdownlint.json`. The config was written before any
+  linter had run against it, so that clean result is the first real validation
+  of the config itself.
+
+- [ ] **Copy the pre-commit hook from PSToolkit.** `.markdownlint.json` now
+  exists and all three Markdown files lint clean under it, verified with
+  markdownlint-cli2 v0.23.3. `.githooks/pre-commit` does not, so there is no
+  gate: a Markdown rule can be committed without being checked. Copy the hook
+  and remove the blockquote in `AGENTS.md` that says it is missing.
   `.gitattributes` is already in place and already pins `.githooks/*` to LF, so
   the hook will work once it exists.
+
+  The hook should call `markdownlint-cli2`, which is now installed globally at
+  0.23.3. Do not substitute `markdownlint-cli`: that is the older v0 package,
+  it reads the config differently, and a green result from it does not mean the
+  repository's own rules passed. This bit once already — the v0 package was the
+  one on PATH, so a run against it would have looked fine while checking
+  something else.
 
 - [ ] **Decide whether `AGENTS.md` should point at this file.** `AGENTS.md` 1
   says a deliberate exception belongs in `README.md`, which is a different

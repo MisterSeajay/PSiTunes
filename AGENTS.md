@@ -10,13 +10,24 @@ deferred rather than dropped.
 
 ## Documentation
 
-**Markdown should be linted with markdownlint-cli2** (npm package). The rules live
-in `.markdownlint.json` at the repository root, so the linter runs with no extra
+**Markdown is linted with markdownlint-cli2** (npm package). The rules live in
+`.markdownlint.json` at the repository root, so the linter runs with no extra
 flags:
 
 ```powershell
 markdownlint-cli2 "**/*.md"
 ```
+
+That is the v2 package, `markdownlint-cli2`. Do not confuse it with
+`markdownlint-cli`, which is a different, older package with a different
+config format; a green result from the wrong binary means nothing. If the
+command is not on PATH, install the right one rather than substituting:
+
+```powershell
+npm install -g markdownlint-cli2
+```
+
+All three Markdown files currently lint clean under this config.
 
 The config, not this section, is the contract. The settings that are easy to
 trip over:
@@ -31,18 +42,17 @@ Two reasons the config is a file rather than a set of command-line flags: every
 contributor and every CI job then lints against the same rules, and a rule that
 lives only in one person's shell history is not a rule.
 
-> **Not yet present in this repository.** There is no `.markdownlint.json` and no
-> `.githooks/` here yet, so the linter above has nothing to read and there is no
-> pre-commit hook to enable. Both are to be copied from PSToolkit; the item is
-> tracked in `TODO.md`. Until `.markdownlint.json` exists, lint with explicit
-> flags or do not claim to have linted.
-
 ### The pre-commit hook
 
 `.githooks/pre-commit` runs the linter over the staged Markdown, so a rule is
 checked before it can be committed rather than discovered later. It is
 POSIX `sh`, not PowerShell, because that is what git executes on every platform
 including Windows.
+
+> **The hook does not exist here yet.** There is no `.githooks/` directory in this
+> repository, so there is nothing to enable. The config it would use,
+> `.markdownlint.json`, does now exist. Copy the hook from PSToolkit when you
+> want the gate; the item is tracked in `TODO.md`.
 
 Enable it once per clone:
 
