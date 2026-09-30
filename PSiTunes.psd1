@@ -10,13 +10,13 @@ ModuleVersion = '1.0.0.0'
 GUID = '36c788bd-bc39-414a-8e37-f7f881c1f9c6'
 
 # Author of this module
-Author = 'Charles Joynt'
+Author = 'MisterSeajay'
 
 # Company or vendor of this module
-CompanyName = 'Charles Joynt'
+CompanyName = 'MisterSeajay'
 
 # Copyright statement for this module
-Copyright = 'Charles Joynt'
+Copyright = 'MisterSeajay'
 
 # Description of the functionality provided by this module
 Description = 'iTunes Library management functions'

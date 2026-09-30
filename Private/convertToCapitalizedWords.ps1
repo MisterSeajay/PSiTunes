@@ -8,10 +8,8 @@
     following apostrophes within words.
   .NOTES
     Filename: convertToCapitalizedWords.ps1
-    Author:   Charles Joynt
+    Author:   MisterSeajay
     History:  19/01/2011 script created
-  .LINK
-    https://sites.google.com/a/joynt.co.uk/wiki/kb/scripting/powershell/convertToCapitalizedWords
   .LINK
     https://github.com/MisterSeajay/PSiTunes/wiki/convertToCapitalizedWords
   .EXAMPLE
