@@ -1,8 +1,10 @@
 ﻿[CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter()]
+    # No default: the module that supplies the real path is imported further down,
+    # after parameters have already been bound. Resolved just after the import.
     [string]
-    $iTunesMediaPath = "D:\iTunes\iTunes Media",
+    $iTunesMediaPath = $null,
 
     [Parameter()]
     [string]
@@ -42,6 +44,24 @@ $cwd = Split-Path $MyInvocation.InvocationName -Parent
 if(-not $cwd){$cwd = (Get-Location).Path}
 $PSiTunes = Resolve-Path -Path (Join-Path $cwd "../PSiTunes.psd1")
 Import-Module $PSiTunes -Force -Verbose:$false
+
+# The module works out the iTunes media location from the library XML rather than
+# assuming a drive letter. Prefer that over the path this script was written
+# against, but keep a literal fallback so the script still runs on a machine where
+# the lookup failed. The module's global has the same name as this script's
+# parameter, so read it into a differently named variable first: the parameter
+# shadows the global and would otherwise be read back as $null.
+$ModuleMediaPath = $global:iTunesMediaPath
+
+if(-not $iTunesMediaPath){
+    if($ModuleMediaPath){
+        $iTunesMediaPath = $ModuleMediaPath
+    }
+    else {
+        Write-Warning "Could not determine the iTunes media path from the library. Falling back to 'D:\iTunes\iTunes Media'."
+        $iTunesMediaPath = "D:\iTunes\iTunes Media"
+    }
+}
 
 ###############################################################################
 # Default error handling
@@ -179,8 +199,11 @@ function getTargetPath {
         $MetaData,
 
         [Parameter()]
+        # Defaults to the script-level parameter, which is itself resolved from
+        # the module. Repeating the literal here would reintroduce the hardcoded
+        # path this script is being cleaned up to remove.
         [string]
-        $iTunesMediaPath = "D:\iTunes\iTunes Media",
+        $iTunesMediaPath = $script:iTunesMediaPath,
 
         [Parameter()]
         [string]
