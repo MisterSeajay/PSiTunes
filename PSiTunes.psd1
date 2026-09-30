@@ -66,16 +66,51 @@ ScriptsToProcess = @(
 # NestedModules = @()
 
 # Functions to export from this module
-FunctionsToExport = '*-*'
+# Listed explicitly rather than as '*-*'. A wildcard matches on name shape, so
+# a private helper ever named Verb-Noun would be exported by accident. The list
+# is derived from the files in Public/; regenerate it with the AST rather than
+# maintaining it by hand, so a new function is never left out of the manifest.
+FunctionsToExport = @(
+    'Find-iTunesDuplicatedTracks'
+    'Format-iTunesFileName'
+    'Get-FileMetadata'
+    'Get-SimpleAttributes'
+    'Get-iTunesFileLocations'
+    'Get-iTunesLibrary'
+    'Get-iTunesLibraryGenres'
+    'Get-iTunesMediaLocation'
+    'Get-iTunesPlaylist'
+    'Get-iTunesPlaylistTracks'
+    'Get-iTunesSelectedTracks'
+    'Get-iTunesXmlLibrary'
+    'Get-iTunesXmlLibraryTracks'
+    'Search-iTunesLibrary'
+    'Set-iTunesTrackData'
+    'Set-iTunesTrackGenre'
+    'Set-iTunesTrackGrouping'
+    'Set-iTunesTrackName'
+    'Set-iTunesTrackRating'
+    'Set-mp3TrackData'
+    'Start-iTunes'
+    'Sync-iTunesPlaylistTracks'
+    'Sync-iTunesTrackData'
+)
 
 # Cmdlets to export from this module
-# CmdletsToExport = '*-*'
+# The module is a script module, so it has none. Explicitly empty so a future
+# binary cmdlet is not exported by wildcard without a decision being made.
+CmdletsToExport = @()
 
 # Variables to export from this module
-VariablesToExport = '*'
+# The module deliberately exposes none of its internals. The .psm1 assigns the
+# shared state with $GLOBAL:, which is true global scope, so iTunesRoot,
+# iTunesApplication, iTunesLibrary and iTunesMediaPath reach the caller
+# regardless of this setting; an empty list here does not hide them.
+VariablesToExport = @()
 
 # Aliases to export from this module
-AliasesToExport = '*'
+# The module defines no aliases.
+AliasesToExport = @()
 
 # DSC resources to export from this module
 # DscResourcesToExport = @()

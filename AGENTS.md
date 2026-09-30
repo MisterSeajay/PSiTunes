@@ -572,10 +572,16 @@ consequences shape how the code is written and why it is awkward to test:
   same problem.
 - **The manifest uses wildcards for exports.**
   `FunctionsToExport = '*-*'`, `VariablesToExport = '*'`, and
-  `AliasesToExport = '*'`. This violates 1.6. Note that `VariablesToExport = '*'`
-  is what makes the `$GLOBAL:` variables from the `.psm1` visible to callers,
-  so tightening it changes behaviour — expect `Get-iTunesLibrary` and friends to
-  need the path passed in explicitly.
+  `AliasesToExport = '*'`. This violates 1.6. Tightening
+  `VariablesToExport` is **not** the behaviour change an earlier version of this
+  file claimed: the `.psm1` assigns with `$GLOBAL:`, which is true global scope
+  rather than module scope, so those variables stay visible to callers no matter
+  what `VariablesToExport` says. This was verified with a throwaway module
+  exporting `'*'` and `@()` and reading the variable back from the caller; both
+  returned it. `FunctionsToExport = '*-*'` did hide a real risk, though: it
+  matches on shape, so a future private helper named `Verb-Noun` would be
+  exported by accident. The private helpers are all camelCase today, so the
+  wildcard happens to select the 23 public functions and nothing else.
 - **Paths are hardcoded to one machine.** `PSiTunes.psm1` sets
   `$GLOBAL:iTunesRoot = "D:\iTunes\iTunes Media\Music\"` and
   `$GLOBAL:iTunesMediaPath = "D:\iTunes\iTunes Media"`, and `Scripts/` repeats
@@ -589,12 +595,15 @@ consequences shape how the code is written and why it is awkward to test:
   dynamic-scoping trap in 1.9, made concrete: a caller who has a different
   `$iTunesLibrary` in scope silently changes which library is modified. Pass the
   playlist in as a parameter, with the global as a fallback.
-- **Two public functions have no `[CmdletBinding()]`:** `Get-iTunesLibrary` and
-  `Get-iTunesSelectedTracks`. They get no `-Verbose` and no `-ErrorAction`, and
-  `Get-iTunesLibrary` in particular is a function people call by mistake. Both
-  are two-line fixes.
+- **Every public function declares `[CmdletBinding()]` now.** `Get-iTunesLibrary`
+  and `Get-iTunesSelectedTracks` were the last two without it; both were fixed
+  in febefda. When counting this, count functions, not `ShouldProcess` call
+  sites: a function with several `if ($PSCmdlet.ShouldProcess(...))` branches
+  has several sites, which inflates the number and is how an earlier count of
+  "22 of 24" was wrong. The real figures are 23 public functions, all with
+  `CmdletBinding`, 15 of them with `SupportsShouldProcess`.
 - **There is no comment-based help anywhere in `Public/`.** Zero `.SYNOPSIS`
-  blocks across 24 exported functions, while 22 of them do declare
+  blocks across all 23 exported functions, while 15 of them declare
   `SupportsShouldProcess` and therefore present a `WhatIf` prompt that no help
   text explains. Per 1.4 the help is the contract, and the Gallery will show
   empty entries. This is the largest single gap against Section 1.
