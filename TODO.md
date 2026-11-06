@@ -140,6 +140,12 @@ reported failure, which is the point: they are silent.
   of a release is not something that can be checked by reading. A test that
   counts live handles across a loop would show whether the fix works.
 
+  One place already does it: `Scripts/Invoke-iTunesGroupingMigration.ps1`
+  releases its per-track reference at the end of every loop iteration and its
+  collection and library playlist in an outer `finally`, all references the
+  script owns. It is the pattern to copy when the module's own commands get
+  this fix.
+
 - [ ] **`cleanCharacterSet` destroys non-ASCII text, and is dead code.**
   It round-trips a string through ISO-8859-8 and back as UTF-8. ISO-8859-8 has no
   code point for `é`, so it encodes to `?`, and that decodes as a plain `e`:
@@ -277,6 +283,17 @@ reported failure, which is the point: they are silent.
   deliberate decision, and it is currently unrecorded: if it stays, the reason
   belongs here, because `AGENTS.md` says an exception should be recorded rather
   than quietly kept.
+
+  Discovered while fixing
+  `Scripts/Invoke-iTunesGroupingMigration.ps1` (2026-10-30): `-WhatIf` propagates
+  into the module import, `Start-iTunes`'s `ShouldProcess` then suppresses the
+  `New-Object`, so under a dry run `$GLOBAL:iTunesApplication` stays null and
+  every later property access fails, all while the user's `-WhatIf` was meant to
+  apply to the migration write, not to establishing the connection. The script
+  works around it by calling `Start-iTunes -WhatIf:$false` and using its own
+  connection instead of the module globals. Worth deciding whether the import
+  should keep the `Start-iTunes` call at all, or whether `-WhatIf:$false`
+  belongs in the import itself.
 
 - [ ] **`Classes/` is loaded twice.** The manifest's `ScriptsToProcess` lists
   both class scripts, and `PSiTunes.psm1` dot-sources the same directory. Each
